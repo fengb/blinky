@@ -1,43 +1,48 @@
 package main
 
 import (
-	"fmt"
 	"github.com/Jguer/go-alpm"
 	"os"
 )
 
-func PacOutdated() error {
+type Outdated struct {
+	Installed alpm.Package
+	Latest    *alpm.Package
+}
+
+func PacOutdated() ([]Outdated, error) {
 	reader, err := os.Open("/etc/pacman.conf")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	conf, err := alpm.ParseConfig(reader)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	handle, err := conf.CreateHandle()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	localDb, err := handle.LocalDb()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	syncDbs, err := handle.SyncDbs()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	outdated := make([]Outdated, 0)
 	for _, pkg := range localDb.PkgCache().Slice() {
 		newPkg := pkg.NewVersion(syncDbs)
 		if newPkg != nil {
-			fmt.Printf("%s %s -> %s\n", pkg.Name(), pkg.Version(), newPkg.Version())
+			outdated = append(outdated, Outdated{pkg, newPkg})
 		}
 	}
 
-	return nil
+	return outdated, nil
 }

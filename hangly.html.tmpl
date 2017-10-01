@@ -1,0 +1,9 @@
+<ul>
+	{{- range .}}
+		<li>
+			<span>{{ .Installed.Name }}</span>
+			<span>{{ .Installed.Version }}</span>
+			<span>{{ .Latest.Version }}</span>
+		</li>
+	{{- end }}
+</ul>

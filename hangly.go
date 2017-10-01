@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
+	"os"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -10,7 +12,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	err := PacOutdated()
+	tmpl, err := template.ParseFiles("hangly.html.tmpl")
+	if err != nil {
+		panic(err)
+	}
+
+	outdated, err := PacOutdated()
+	if err != nil {
+		panic(err)
+	}
+
+	err = tmpl.Execute(os.Stdout, outdated)
 	if err != nil {
 		panic(err)
 	}
