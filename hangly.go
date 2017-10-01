@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Jguer/go-alpm"
 	"net/http"
+	"os"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -11,7 +12,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func alpmToy() {
-	handle, err := alpm.Init("/", "/var/lib/pacman")
+	reader, err := os.Open("/etc/pacman.conf")
+	if err != nil {
+		panic(err)
+	}
+
+	conf, err := alpm.ParseConfig(reader)
+	if err != nil {
+		panic(err)
+	}
+
+	handle, err := conf.CreateHandle()
 	if err != nil {
 		panic(err)
 	}
@@ -25,17 +36,11 @@ func alpmToy() {
 	if err != nil {
 		panic(err)
 	}
-	syncDbs.ForEach(func(db alpm.Db) error {
-		fmt.Printf("%s\n", db.Name())
-		return nil
-	})
 
 	for _, pkg := range localDb.PkgCache().Slice() {
 		newPkg := pkg.NewVersion(syncDbs)
 		if newPkg != nil {
 			fmt.Printf("%s %s -> %s\n", pkg.Name(), pkg.Version(), newPkg.Version())
-		} else {
-			fmt.Printf("%s %s\n", pkg.Name(), pkg.Version())
 		}
 	}
 }
