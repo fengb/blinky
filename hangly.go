@@ -26,6 +26,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	testFunc := Debounced(100, func() {
+		fmt.Println("Hello!")
+	})
+	testFunc()
+	testFunc()
+	testFunc()
+	testFunc()
+	<-testFunc()
 	// http.HandleFunc("/", handler)
 	// http.ListenAndServe(":8080", nil)
 }
