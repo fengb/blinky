@@ -17,24 +17,25 @@ func main() {
 		panic(err)
 	}
 
-	outdated, err := PacOutdated("/etc/pacman.conf")
+	pac, err := NewPac("/etc/pacman.conf")
 	if err != nil {
 		panic(err)
 	}
 
-	err = tmpl.Execute(os.Stdout, outdated)
+	watch, err := pac.Watch()
 	if err != nil {
 		panic(err)
 	}
 
-	testFunc := NewDebounced(100, func() {
-		fmt.Println("Hello!")
-	})
-	testFunc.Call()
-	testFunc.Call()
-	testFunc.Call()
-	testFunc.Call()
-	<-testFunc.Drain()
+	for pkgs := range watch {
+		err = tmpl.Execute(os.Stdout, pkgs)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	panic("Watch closed unexpectedly")
+
 	// http.HandleFunc("/", handler)
 	// http.ListenAndServe(":8080", nil)
 }
