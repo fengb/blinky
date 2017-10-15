@@ -27,14 +27,14 @@ func main() {
 		panic(err)
 	}
 
-	testFunc := Debounced(100, func() {
+	testFunc := Debounced{delay: 100, fn: func() {
 		fmt.Println("Hello!")
-	})
-	testFunc()
-	testFunc()
-	testFunc()
-	testFunc()
-	<-testFunc()
+	}}
+	testFunc.Call()
+	testFunc.Call()
+	testFunc.Call()
+	testFunc.Call()
+	<-testFunc.Drain()
 	// http.HandleFunc("/", handler)
 	// http.ListenAndServe(":8080", nil)
 }

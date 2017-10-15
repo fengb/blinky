@@ -4,35 +4,53 @@ import (
 	"time"
 )
 
-func Debounced(delay int64, fn func()) func() chan struct{} {
-	var timer *time.Timer
-	var drains []chan struct{}
-	duration := time.Duration(delay) * time.Millisecond
+type Debounced struct {
+	delay int64
+	fn func()
+	timer *time.Timer
+	drains []chan struct{}
+}
 
-	return func() chan struct{} {
-		drain := make(chan struct{})
-		drains = append(drains, drain)
+func (d Debounced) IsActive() bool {
+	return d.timer != nil
+}
 
-		if timer == nil {
-			timer = time.NewTimer(duration)
-			go func() {
-				<-timer.C
-				timer = nil
-				fn()
-				for _, drain := range drains {
-					select {
-					case drain <- struct{}{}:
-						close(drain)
-					default:
-					}
-				}
-				drains = nil
-			}()
-		} else {
-			timer.Stop()
-			timer.Reset(duration)
-		}
+func (d *Debounced) Call() {
+	duration := time.Duration(d.delay) * time.Millisecond
 
-		return drain
+	if d.IsActive() {
+		d.timer.Stop()
+		d.timer.Reset(duration)
+		return
 	}
+
+	d.timer = time.NewTimer(duration)
+	go func() {
+		<-d.timer.C
+		d.timer = nil
+		d.fn()
+		for _, drain := range d.drains {
+			select {
+			case drain <- struct{}{}:
+				close(drain)
+			default:
+			}
+		}
+		d.drains = nil
+	}()
+}
+
+func (d *Debounced) Drain() <-chan struct{} {
+	drain := make(chan struct{})
+
+	if d.IsActive() {
+		d.drains = append(d.drains, drain)
+	} else {
+		go func() {
+			drain <- struct{}{}
+			close(drain)
+		}()
+	}
+
+	return drain
 }
