@@ -10,8 +10,8 @@ type Outdated struct {
 	Latest    *alpm.Package
 }
 
-func PacOutdated() ([]Outdated, error) {
-	reader, err := os.Open("/etc/pacman.conf")
+func PacOutdated(filename string) ([]Outdated, error) {
+	reader, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}

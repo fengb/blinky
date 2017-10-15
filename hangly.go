@@ -17,7 +17,7 @@ func main() {
 		panic(err)
 	}
 
-	outdated, err := PacOutdated()
+	outdated, err := PacOutdated("/etc/pacman.conf")
 	if err != nil {
 		panic(err)
 	}
