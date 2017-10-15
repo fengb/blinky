@@ -5,10 +5,17 @@ import (
 )
 
 type Debounced struct {
-	delay int64
-	fn func()
-	timer *time.Timer
+	delay  time.Duration
+	fn     func()
+	timer  *time.Timer
 	drains []chan struct{}
+}
+
+func NewDebounced(delay int64, fn func()) Debounced {
+	return Debounced{
+		delay: time.Duration(delay) * time.Millisecond,
+		fn:    fn,
+	}
 }
 
 func (d Debounced) IsActive() bool {
@@ -16,15 +23,13 @@ func (d Debounced) IsActive() bool {
 }
 
 func (d *Debounced) Call() {
-	duration := time.Duration(d.delay) * time.Millisecond
-
 	if d.IsActive() {
 		d.timer.Stop()
-		d.timer.Reset(duration)
+		d.timer.Reset(d.delay)
 		return
 	}
 
-	d.timer = time.NewTimer(duration)
+	d.timer = time.NewTimer(d.delay)
 	go func() {
 		<-d.timer.C
 		d.timer = nil

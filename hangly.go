@@ -27,9 +27,9 @@ func main() {
 		panic(err)
 	}
 
-	testFunc := Debounced{delay: 100, fn: func() {
+	testFunc := NewDebounced(100, func() {
 		fmt.Println("Hello!")
-	}}
+	})
 	testFunc.Call()
 	testFunc.Call()
 	testFunc.Call()
