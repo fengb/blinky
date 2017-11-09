@@ -1,15 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"html/template"
 	"net/http"
-	"os"
 )
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
-}
 
 func main() {
 	tmpl, err := template.ParseFiles("hangly.html.tmpl")
@@ -27,15 +21,24 @@ func main() {
 		panic(err)
 	}
 
-	for pkgs := range watch {
-		err = tmpl.Execute(os.Stdout, pkgs)
-		if err != nil {
-			panic(err)
-		}
+	pkgs, err := pac.GetPackages()
+	if err != nil {
+		panic(err)
 	}
 
-	panic("Watch closed unexpectedly")
+	go func() {
+		for newPkgs := range watch {
+			pkgs = newPkgs
+		}
+		panic("Watch closed unexpectedly")
+	}()
 
-	// http.HandleFunc("/", handler)
-	// http.ListenAndServe(":8080", nil)
+
+	http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+		err := tmpl.Execute(w, pkgs)
+		if err != nil {
+			// ???
+		}
+	})
+	http.ListenAndServe(":9012", nil)
 }

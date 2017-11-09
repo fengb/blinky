@@ -100,8 +100,6 @@ func (p *Pac) Watch() (chan []Package, error) {
 			p.watch = nil
 		}()
 
-		debouncedPackages.CallImmediate()
-
 		for {
 			select {
 			case event := <-watcher.Events:
