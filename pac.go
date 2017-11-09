@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"github.com/Jguer/go-alpm"
 	"github.com/fsnotify/fsnotify"
 	"os"
@@ -13,10 +12,7 @@ type Package struct {
 }
 
 type Pac struct {
-	Packages []Package
-	conf     alpm.PacmanConfig
-	watch    chan []Package
-	unwatch  chan struct{}
+	conf alpm.PacmanConfig
 }
 
 func NewPac(filename string) (*Pac, error) {
@@ -30,7 +26,7 @@ func NewPac(filename string) (*Pac, error) {
 		return nil, err
 	}
 
-	pac := Pac{conf: conf, unwatch: make(chan struct{})}
+	pac := Pac{conf}
 	return &pac, nil
 }
 
@@ -60,15 +56,10 @@ func (p *Pac) GetPackages() ([]Package, error) {
 		packages = append(packages, pkg)
 	}
 
-	p.Packages = packages
 	return packages, nil
 }
 
 func (p *Pac) Watch() (chan []Package, error) {
-	if p.watch != nil {
-		return nil, errors.New("already watching")
-	}
-
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -83,21 +74,20 @@ func (p *Pac) Watch() (chan []Package, error) {
 		return nil, err
 	}
 
-	p.watch = make(chan []Package)
+	watch := make(chan []Package)
 
 	debouncedPackages := NewDebounced(1000, func() {
 		pkgs, err := p.GetPackages()
 		if err != nil {
 			// How to handle?
 		}
-		p.watch <- pkgs
+		watch <- pkgs
 	})
 
 	go func() {
 		defer func() {
 			watcher.Close()
-			close(p.watch)
-			p.watch = nil
+			close(watch)
 		}()
 
 		for {
@@ -109,20 +99,9 @@ func (p *Pac) Watch() (chan []Package, error) {
 			case <-watcher.Errors:
 				// File disappeared? Job completed I suppose...
 				return
-			case <-p.unwatch:
-				return
 			}
 		}
 	}()
 
-	return p.watch, nil
-}
-
-func (p *Pac) Unwatch() error {
-	if p.watch == nil {
-		return errors.New("not watching")
-	}
-
-	p.unwatch <- struct{}{}
-	return nil
+	return watch, nil
 }

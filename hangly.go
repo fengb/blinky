@@ -33,8 +33,7 @@ func main() {
 		panic("Watch closed unexpectedly")
 	}()
 
-
-	http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		err := tmpl.Execute(w, pkgs)
 		if err != nil {
 			// ???
