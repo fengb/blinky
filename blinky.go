@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	tmpl, err := template.ParseFiles("hangly.html.tmpl")
+	tmpl, err := template.ParseFiles("blinky.html.tmpl")
 	if err != nil {
 		panic(err)
 	}
