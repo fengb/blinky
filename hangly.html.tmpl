@@ -1,9 +1,14 @@
-<ul>
+<table>
+	<tr>
+		<th>Name</th>
+		<th>Version</th>
+		<th>Upgrade</th>
+	</tr>
 	{{- range .}}
-		<li>
-			<span>{{ .Installed.Name }}</span>
-			<span>{{ .Installed.Version }}</span>
-			<span>{{ .Latest.Version }}</span>
-		</li>
+		<tr>
+			<td>{{ .Name }}</td>
+			<td>{{ .Version }}</td>
+			<td>{{ .Upgrade }}</td>
+		</tr>
 	{{- end }}
-</ul>
+</table>

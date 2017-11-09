@@ -8,8 +8,8 @@ import (
 )
 
 type Package struct {
-	Installed alpm.Package
-	Latest    *alpm.Package
+	alpm.Package
+	Upgrade string
 }
 
 type Pac struct {
@@ -51,11 +51,13 @@ func (p *Pac) GetPackages() ([]Package, error) {
 	}
 
 	packages := make([]Package, 0)
-	for _, pkg := range localDb.PkgCache().Slice() {
-		newPkg := pkg.NewVersion(syncDbs)
-		if newPkg != nil {
-			packages = append(packages, Package{pkg, newPkg})
+	for _, alpmPkg := range localDb.PkgCache().Slice() {
+		pkg := Package{Package: alpmPkg}
+		newAlpmPkg := alpmPkg.NewVersion(syncDbs)
+		if newAlpmPkg != nil {
+			pkg.Upgrade = newAlpmPkg.Version()
 		}
+		packages = append(packages, pkg)
 	}
 
 	p.Packages = packages
