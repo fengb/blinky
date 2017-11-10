@@ -11,10 +11,5 @@ func main() {
 		panic(err)
 	}
 
-	watch, err := pac.Watch()
-	if err != nil {
-		panic(err)
-	}
-
-	Serve(conf, watch)
+	Serve(conf, pac)
 }

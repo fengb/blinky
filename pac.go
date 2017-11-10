@@ -12,7 +12,9 @@ type Package struct {
 }
 
 type Pac struct {
-	conf alpm.PacmanConfig
+	snapshot []Package
+	conf     alpm.PacmanConfig
+	term     chan struct{}
 }
 
 func NewPac(filename string) (*Pac, error) {
@@ -26,11 +28,34 @@ func NewPac(filename string) (*Pac, error) {
 		return nil, err
 	}
 
-	pac := Pac{conf}
+	pac := Pac{conf: conf, term: make(chan struct{})}
+
+	err = pac.startAutoUpdate(pac.term)
+	if err != nil {
+		pac.Close()
+		return nil, err
+	}
 	return &pac, nil
 }
 
-func (p *Pac) GetPackages() ([]Package, error) {
+func (p *Pac) Close() {
+	if p.term == nil {
+		return
+	}
+
+	close(p.term)
+	p.term = nil
+}
+
+func (p *Pac) GetSnapshot() ([]Package, error) {
+	if p.snapshot != nil {
+		return p.snapshot, nil
+	} else {
+		return p.FetchSnapshot()
+	}
+}
+
+func (p *Pac) FetchSnapshot() ([]Package, error) {
 	handle, err := p.conf.CreateHandle()
 	if err != nil {
 		return nil, err
@@ -56,13 +81,14 @@ func (p *Pac) GetPackages() ([]Package, error) {
 		packages = append(packages, pkg)
 	}
 
+	p.snapshot = packages
 	return packages, nil
 }
 
-func (p *Pac) Watch() (<-chan []Package, error) {
+func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if p.conf.LogFile != "" {
@@ -71,39 +97,34 @@ func (p *Pac) Watch() (<-chan []Package, error) {
 		err = watcher.Add("/var/log/pacman.log")
 	}
 	if err != nil {
-		return nil, err
+		watcher.Close()
+		return err
 	}
 
-	watch := make(chan []Package)
-
-	debouncedPackages := NewDebounced(1000, func() {
-		pkgs, err := p.GetPackages()
+	debouncedFetch := NewDebounced(100, func() {
+		_, err := p.FetchSnapshot()
 		if err != nil {
 			// How to handle?
 		}
-		watch <- pkgs
 	})
 
 	go func() {
-		defer func() {
-			watcher.Close()
-			close(watch)
-		}()
-
-		debouncedPackages.CallImmediate()
+		defer watcher.Close()
 
 		for {
 			select {
 			case event := <-watcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					debouncedPackages.Call()
+					debouncedFetch.Call()
 				}
-			case <-watcher.Errors:
-				// File disappeared? Job completed I suppose...
+			case err := <-watcher.Errors:
+				// ???
+				panic(err)
+			case <-term:
 				return
 			}
 		}
 	}()
 
-	return watch, nil
+	return nil
 }

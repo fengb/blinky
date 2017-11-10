@@ -4,18 +4,15 @@ package main
 
 import "net/http"
 
-func Serve(conf *Conf, packageUpdate <-chan []Package) error {
-	var packages []Package
-
-	go func() {
-		for newPackages := range packageUpdate {
-			packages = newPackages
-		}
-		panic("Watch closed unexpectedly")
-	}()
-
+func Serve(conf *Conf, pac *Pac) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		err := conf.index.Execute(w, packages)
+		snapshot, err := pac.GetSnapshot()
+		if err != nil {
+			// 500
+			return
+		}
+
+		err = conf.index.Execute(w, snapshot)
 		if err != nil {
 			// ???
 		}
