@@ -2,17 +2,9 @@ package main
 
 //go:generate "$GOPATH/bin/templify" -o web_index.go index.html.tmpl
 
-import (
-	"html/template"
-	"net/http"
-)
+import "net/http"
 
-func Serve(packageUpdate <-chan []Package) error {
-	tmpl, err := template.New("index").Parse(web_indexTemplate())
-	if err != nil {
-		panic(err)
-	}
-
+func Serve(conf *Conf, packageUpdate <-chan []Package) error {
 	var packages []Package
 
 	go func() {
@@ -23,7 +15,7 @@ func Serve(packageUpdate <-chan []Package) error {
 	}()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		err := tmpl.Execute(w, packages)
+		err := conf.index.Execute(w, packages)
 		if err != nil {
 			// ???
 		}

@@ -6,9 +6,9 @@
 
 package main
 
-// web_indexTemplate is a generated function returning the template as a string.
+// index_templateTemplate is a generated function returning the template as a string.
 // That string should be parsed by the functions of the golang's template package.
-func web_indexTemplate() string {
+func index_templateTemplate() string {
 	var tmpl = "<table>\n" +
 		"\t<tr>\n" +
 		"\t\t<th>Name</th>\n" +
