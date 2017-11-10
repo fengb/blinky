@@ -4,12 +4,12 @@ VERSION = 0.0.1
 build/blinky:
 	go build -o build/blinky
 
-build/blinky.tar.gz: *.go
+build/v%.tar.gz:
 	@mkdir -p build
-	git ls-files | xargs tar --transform 's:^:blinky-$(VERSION)/:' -czf build/blinky.tar.gz
+	curl -fsL -o $@ https://github.com/fengb/blinky/archive/v$*.tar.gz
 
-build/PKGBUILD: build/blinky.tar.gz
-	VERSION=$(VERSION) TARBALL=build/blinky.tar.gz \
+build/PKGBUILD: build/v$(VERSION).tar.gz
+	VERSION=$(VERSION) TARBALL=build/v$(VERSION).tar.gz \
 	scripts/pkgbuild build/PKGBUILD
 
 .PHONY: clean install uninstall package
@@ -17,10 +17,10 @@ build/PKGBUILD: build/blinky.tar.gz
 clean:
 	rm -r build
 
-package: build/blinky.tar.gz build/PKGBUILD
+package: build/PKGBUILD
 
-install:
-	install -D -m0755 blinky $(PREFIX)/usr/bin/blinky
+install: build/blinky
+	install -D -m0755 build/blinky $(PREFIX)/usr/bin/blinky
 
 uninstall:
 	rm $(PREFIX)/usr/bin/blinky
