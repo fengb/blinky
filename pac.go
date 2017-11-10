@@ -59,7 +59,7 @@ func (p *Pac) GetPackages() ([]Package, error) {
 	return packages, nil
 }
 
-func (p *Pac) Watch() (chan []Package, error) {
+func (p *Pac) Watch() (<-chan []Package, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -89,6 +89,8 @@ func (p *Pac) Watch() (chan []Package, error) {
 			watcher.Close()
 			close(watch)
 		}()
+
+		debouncedPackages.CallImmediate()
 
 		for {
 			select {
