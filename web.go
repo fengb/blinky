@@ -1,14 +1,16 @@
 package main
 
+//go:generate "$GOPATH/bin/templify" -o web_index.go index.html.tmpl
+
 import (
 	"html/template"
 	"net/http"
 )
 
 func Serve(packageUpdate <-chan []Package) error {
-	tmpl, err := template.ParseFiles("blinky.html.tmpl")
+	tmpl, err := template.New("index").Parse(web_indexTemplate())
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	var packages []Package
