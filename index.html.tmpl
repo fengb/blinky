@@ -1,14 +1,17 @@
-<table>
-	<tr>
-		<th>Name</th>
-		<th>Version</th>
-		<th>Upgrade</th>
-	</tr>
-	{{- range .Packages }}
-		<tr>
-			<td>{{ .Name }}</td>
-			<td>{{ .Version }}</td>
-			<td>{{ .Upgrade }}</td>
-		</tr>
-	{{- end }}
-</table>
+<html>
+  <h3>Last Synced &mdash; {{ .LastSync }}</h3>
+  <table>
+          <tr>
+                  <th>Name</th>
+                  <th>Version</th>
+                  <th>Upgrade</th>
+          </tr>
+          {{- range .Packages }}
+                  <tr>
+                          <td>{{ .Name }}</td>
+                          <td>{{ .Version }}</td>
+                          <td>{{ .Upgrade }}</td>
+                  </tr>
+          {{- end }}
+  </table>
+</html>

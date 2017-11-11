@@ -9,20 +9,23 @@ package main
 // index_templateTemplate is a generated function returning the template as a string.
 // That string should be parsed by the functions of the golang's template package.
 func index_templateTemplate() string {
-	var tmpl = "<table>\n" +
-		"\t<tr>\n" +
-		"\t\t<th>Name</th>\n" +
-		"\t\t<th>Version</th>\n" +
-		"\t\t<th>Upgrade</th>\n" +
-		"\t</tr>\n" +
-		"\t{{- range .Packages }}\n" +
-		"\t\t<tr>\n" +
-		"\t\t\t<td>{{ .Name }}</td>\n" +
-		"\t\t\t<td>{{ .Version }}</td>\n" +
-		"\t\t\t<td>{{ .Upgrade }}</td>\n" +
-		"\t\t</tr>\n" +
-		"\t{{- end }}\n" +
-		"</table>\n" +
+	var tmpl = "<html>\n" +
+		"  <h3>Last Synced &mdash; {{ .LastSync }}</h3>\n" +
+		"  <table>\n" +
+		"          <tr>\n" +
+		"                  <th>Name</th>\n" +
+		"                  <th>Version</th>\n" +
+		"                  <th>Upgrade</th>\n" +
+		"          </tr>\n" +
+		"          {{- range .Packages }}\n" +
+		"                  <tr>\n" +
+		"                          <td>{{ .Name }}</td>\n" +
+		"                          <td>{{ .Version }}</td>\n" +
+		"                          <td>{{ .Upgrade }}</td>\n" +
+		"                  </tr>\n" +
+		"          {{- end }}\n" +
+		"  </table>\n" +
+		"</html>\n" +
 		""
 	return tmpl
 }

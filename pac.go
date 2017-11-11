@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"github.com/Jguer/go-alpm"
 	"github.com/fsnotify/fsnotify"
 	"os"
+	"strings"
 )
 
 type Package struct {
@@ -12,12 +14,14 @@ type Package struct {
 }
 
 type Snapshot struct {
+	LastSync string
 	Packages []Package
 }
 
 type Pac struct {
 	snapshot *Snapshot
 	conf     alpm.PacmanConfig
+	logfile  string
 	term     chan struct{}
 }
 
@@ -32,7 +36,12 @@ func NewPac(filename string) (*Pac, error) {
 		return nil, err
 	}
 
-	pac := Pac{conf: conf, term: make(chan struct{})}
+	logfile := conf.LogFile
+	if logfile == "" {
+		logfile = "/var/log/pacman.log"
+	}
+
+	pac := Pac{conf: conf, logfile: logfile, term: make(chan struct{})}
 
 	err = pac.startAutoUpdate(pac.term)
 	if err != nil {
@@ -61,13 +70,42 @@ func (p *Pac) GetSnapshot() (*Snapshot, error) {
 }
 
 func (p *Pac) UpdateSnapshot() error {
+	lastSync, err := p.FetchLastSync()
+	if err != nil {
+		return err
+	}
+
 	packages, err := p.FetchPackages()
 	if err != nil {
 		return err
 	}
 
-	p.snapshot = &Snapshot{packages}
+	p.snapshot = &Snapshot{lastSync, packages}
 	return nil
+}
+
+func (p *Pac) FetchLastSync() (string, error) {
+	f, err := os.Open(p.logfile)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	var lastSync string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "synchronizing") {
+			lastSync = line[1:17]
+		}
+	}
+
+	err = scanner.Err()
+	if err != nil {
+		return "", err
+	}
+
+	return lastSync, nil
 }
 
 func (p *Pac) FetchPackages() ([]Package, error) {
@@ -105,11 +143,7 @@ func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 		return err
 	}
 
-	if p.conf.LogFile != "" {
-		err = watcher.Add(p.conf.LogFile)
-	} else {
-		err = watcher.Add("/var/log/pacman.log")
-	}
+	err = watcher.Add(p.logfile)
 	if err != nil {
 		watcher.Close()
 		return err
