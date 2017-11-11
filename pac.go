@@ -72,17 +72,34 @@ func (p *Pac) GetSnapshot() (*Snapshot, error) {
 }
 
 func (p *Pac) UpdateSnapshot() error {
-	lastSync, err := p.FetchLastSync()
-	if err != nil {
-		return err
+	var snapshot Snapshot
+
+	var syncError error
+	done := make(chan struct{}, 2)
+
+	go func() {
+		snapshot.LastSync, syncError = p.FetchLastSync()
+		done <- struct{}{}
+	}()
+
+	var packageError error
+	go func() {
+		snapshot.Packages, packageError = p.FetchPackages()
+		done <- struct{}{}
+	}()
+
+	<-done
+	<-done
+
+	if syncError != nil {
+		return syncError
 	}
 
-	packages, err := p.FetchPackages()
-	if err != nil {
-		return err
+	if packageError != nil {
+		return packageError
 	}
 
-	p.snapshot = &Snapshot{lastSync, packages}
+	p.snapshot = &snapshot
 	return nil
 }
 
