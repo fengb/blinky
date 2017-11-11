@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"github.com/Jguer/go-alpm"
 	"github.com/fsnotify/fsnotify"
+	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 type Package struct {
@@ -14,7 +16,7 @@ type Package struct {
 }
 
 type Snapshot struct {
-	LastSync string
+	LastSync time.Time
 	Packages []Package
 }
 
@@ -84,25 +86,29 @@ func (p *Pac) UpdateSnapshot() error {
 	return nil
 }
 
-func (p *Pac) FetchLastSync() (string, error) {
+func (p *Pac) FetchLastSync() (time.Time, error) {
+	var lastSync time.Time
+
 	f, err := os.Open(p.logfile)
 	if err != nil {
-		return "", err
+		return lastSync, err
 	}
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
-	var lastSync string
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, "synchronizing") {
-			lastSync = line[1:17]
+			lastSync, err = time.Parse("2006-01-02 15:04", line[1:17])
+			if err != nil {
+				return lastSync, err
+			}
 		}
 	}
 
 	err = scanner.Err()
 	if err != nil {
-		return "", err
+		return lastSync, err
 	}
 
 	return lastSync, nil
@@ -153,6 +159,7 @@ func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 		err := p.UpdateSnapshot()
 		if err != nil {
 			// How to handle?
+			log.Println(err)
 		}
 	})
 
@@ -167,7 +174,7 @@ func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 				}
 			case err := <-watcher.Errors:
 				// ???
-				panic(err)
+				log.Println(err)
 			case <-term:
 				return
 			}
