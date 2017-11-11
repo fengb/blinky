@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func Serve(conf *Conf, pac *Pac) error {
+func Serve(conf Conf, pac *Pac) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		snapshot, err := pac.GetSnapshot()
 		if err != nil {
@@ -20,7 +20,9 @@ func Serve(conf *Conf, pac *Pac) error {
 			// ???
 		}
 	})
-	fmt.Println("Listening on 9012")
-	http.ListenAndServe(":9012", nil)
+
+	listenString := fmt.Sprintf("%s:%d", conf.host, conf.port)
+	fmt.Println("Listening on", listenString)
+	http.ListenAndServe(listenString, nil)
 	return nil
 }

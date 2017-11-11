@@ -1,10 +1,16 @@
 package main
 
-import "html/template"
+import (
+	"html/template"
+	"os"
+	"strconv"
+)
 
 //go:generate "$GOPATH/bin/templify" -o index_template.go index.html.tmpl
 
 type Conf struct {
+	host  string
+	port  int
 	index *template.Template
 }
 
@@ -17,10 +23,19 @@ func tryTemplates(filename string, genTemplate func() string) (*template.Templat
 	return template.New("index").Parse(genTemplate())
 }
 
-func DefaultConf() (*Conf, error) {
-	tmpl, err := tryTemplates("/etc/blinky/index.html.tmpl", index_templateTemplate)
-	if err != nil {
-		return nil, err
+func DefaultConf() (Conf, error) {
+	var err error
+	conf := Conf{host: os.Getenv("HOST"), port: 9012}
+
+	port := os.Getenv("PORT")
+	if port != "" {
+		conf.port, err = strconv.Atoi(port)
+		if err != nil {
+			return conf, err
+		}
 	}
-	return &Conf{tmpl}, nil
+
+	conf.index, err = tryTemplates("/etc/blinky/index.html.tmpl", index_templateTemplate)
+
+	return conf, err
 }
