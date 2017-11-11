@@ -28,11 +28,7 @@ func (d *Debounced) CallImmediate() {
 
 	d.fn()
 	for _, drain := range d.drains {
-		select {
-		case drain <- struct{}{}:
-			close(drain)
-		default:
-		}
+		close(drain)
 	}
 	d.drains = nil
 }
@@ -57,10 +53,7 @@ func (d *Debounced) Drain() <-chan struct{} {
 	if d.IsActive() {
 		d.drains = append(d.drains, drain)
 	} else {
-		go func() {
-			drain <- struct{}{}
-			close(drain)
-		}()
+		close(drain)
 	}
 
 	return drain
