@@ -1,0 +1,24 @@
+version: '2.0'
+
+services:
+  x64: &base
+    container_name: blinky_x64
+    build: .
+    ports: [ 9012 ]
+    tty: true
+    stdin_open: true
+    volumes:
+      - 'go_src:/opt/go/src'
+      - '.:/opt/go/src/blinky'
+      - '/opt/go/src/blinky/build'
+
+  armv7:
+    <<: *base
+    container_name: blinky_armv7
+    build:
+      context: .
+      args:
+        IMAGE: lopsided/archlinux-armv7h
+
+volumes:
+  go_src:
