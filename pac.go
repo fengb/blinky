@@ -11,8 +11,12 @@ type Package struct {
 	Upgrade string
 }
 
+type Snapshot struct {
+	Packages []Package
+}
+
 type Pac struct {
-	snapshot []Package
+	snapshot *Snapshot
 	conf     alpm.PacmanConfig
 	term     chan struct{}
 }
@@ -47,15 +51,26 @@ func (p *Pac) Close() {
 	p.term = nil
 }
 
-func (p *Pac) GetSnapshot() ([]Package, error) {
-	if p.snapshot != nil {
-		return p.snapshot, nil
-	} else {
-		return p.FetchSnapshot()
+func (p *Pac) GetSnapshot() (*Snapshot, error) {
+	var err error
+	if p.snapshot == nil {
+		err = p.UpdateSnapshot()
 	}
+
+	return p.snapshot, err
 }
 
-func (p *Pac) FetchSnapshot() ([]Package, error) {
+func (p *Pac) UpdateSnapshot() error {
+	packages, err := p.FetchPackages()
+	if err != nil {
+		return err
+	}
+
+	p.snapshot = &Snapshot{packages}
+	return nil
+}
+
+func (p *Pac) FetchPackages() ([]Package, error) {
 	handle, err := p.conf.CreateHandle()
 	if err != nil {
 		return nil, err
@@ -81,7 +96,6 @@ func (p *Pac) FetchSnapshot() ([]Package, error) {
 		packages = append(packages, pkg)
 	}
 
-	p.snapshot = packages
 	return packages, nil
 }
 
@@ -101,8 +115,8 @@ func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 		return err
 	}
 
-	debouncedFetch := NewDebounced(100, func() {
-		_, err := p.FetchSnapshot()
+	debouncedUpdate := NewDebounced(100, func() {
+		err := p.UpdateSnapshot()
 		if err != nil {
 			// How to handle?
 		}
@@ -115,7 +129,7 @@ func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 			select {
 			case event := <-watcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					debouncedFetch.Call()
+					debouncedUpdate.Call()
 				}
 			case err := <-watcher.Errors:
 				// ???

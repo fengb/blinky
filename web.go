@@ -1,8 +1,11 @@
 package main
 
-//go:generate "$GOPATH/bin/templify" -o web_index.go index.html.tmpl
+//go:generate "$GOPATH/bin/templify" -o index_template.go index.html.tmpl
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
 
 func Serve(conf *Conf, pac *Pac) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -17,6 +20,7 @@ func Serve(conf *Conf, pac *Pac) error {
 			// ???
 		}
 	})
+	fmt.Println("Listening on 9012")
 	http.ListenAndServe(":9012", nil)
 	return nil
 }

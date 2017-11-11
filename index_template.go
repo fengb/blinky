@@ -15,7 +15,7 @@ func index_templateTemplate() string {
 		"\t\t<th>Version</th>\n" +
 		"\t\t<th>Upgrade</th>\n" +
 		"\t</tr>\n" +
-		"\t{{- range .}}\n" +
+		"\t{{- range .Packages }}\n" +
 		"\t\t<tr>\n" +
 		"\t\t\t<td>{{ .Name }}</td>\n" +
 		"\t\t\t<td>{{ .Version }}</td>\n" +
