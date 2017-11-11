@@ -116,7 +116,8 @@ func (p *Pac) FetchLastSync() (time.Time, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, "synchronizing") {
-			lastSync, err = time.Parse("2006-01-02 15:04", line[1:17])
+			loc := time.Now().Location()
+			lastSync, err = time.ParseInLocation("2006-01-02 15:04", line[1:17], loc)
 			if err != nil {
 				return lastSync, err
 			}
