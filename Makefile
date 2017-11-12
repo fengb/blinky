@@ -1,6 +1,6 @@
 PREFIX ?= /
 VERSION = 0.0.1
-LDFLAGS = "-X main.ConfDir=/etc/blinky -X main.Version=$(VERSION)"
+LDFLAGS = "-s -w -X main.ConfDir=/etc/blinky -X main.Version=$(VERSION)"
 
 build/blinky: *.go
 	go build -o build/blinky -ldflags $(LDFLAGS)
@@ -16,7 +16,7 @@ build/PKGBUILD: build/v$(VERSION).tar.gz
 .PHONY: clean install uninstall package
 
 clean:
-	rm -r build
+	rm -rf build/*
 
 package: build/PKGBUILD
 
