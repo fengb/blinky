@@ -21,5 +21,6 @@ func main() {
 		panic(err)
 	}
 
+	go Refresher(conf)
 	Serve(conf, pac)
 }
