@@ -1,8 +1,9 @@
 PREFIX ?= /
 VERSION = 0.0.1
+LDFLAGS = "-X main.ConfDir=/etc/blinky -X main.Version=$(VERSION)"
 
-build/blinky:
-	go build -o build/blinky
+build/blinky: *.go
+	go build -o build/blinky -ldflags $(LDFLAGS)
 
 build/v%.tar.gz:
 	@mkdir -p build

@@ -1,7 +1,17 @@
 package main
 
+// linker constants
+var (
+	ConfDir string
+	Version string
+)
+
 func main() {
-	conf, err := LoadConfDir("etc")
+	if ConfDir == "" {
+		ConfDir = "etc"
+	}
+
+	conf, err := LoadConfDir(ConfDir)
 	if err != nil {
 		panic(err)
 	}
