@@ -1,7 +1,7 @@
 package main
 
 func main() {
-	conf, err := DefaultConf()
+	conf, err := LoadConfDir("etc")
 	if err != nil {
 		panic(err)
 	}
