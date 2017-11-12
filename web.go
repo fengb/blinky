@@ -13,13 +13,13 @@ func Serve(conf Conf, pac *Pac) error {
 			return
 		}
 
-		err = conf.Index.Execute(w, snapshot)
+		err = conf.Templates.Index.Execute(w, snapshot)
 		if err != nil {
 			// ???
 		}
 	})
 
-	listenString := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
+	listenString := fmt.Sprintf("%s:%d", conf.Web.Host, conf.Web.Port)
 	fmt.Println("Listening on", listenString)
 	http.ListenAndServe(listenString, nil)
 	return nil
