@@ -1,17 +1,32 @@
 package main
 
 import (
+	"bytes"
 	"log"
-	"os"
 	"os/exec"
 	"time"
 )
 
-func runRefresh() error {
+var root = []byte("root")
+
+func allowsPacmanSync() bool {
+	// Ideally use an exit status but all errors are 1
+	cmd := exec.Command("pacman", "-S")
+	buf := &bytes.Buffer{}
+	cmd.Stderr = buf
+	cmd.Run()
+	return !bytes.Contains(buf.Bytes(), root)
+}
+
+func runRefresh() {
+	log.Println("Running pacman --noconfirm -Syuwq")
 	cmd := exec.Command("pacman", "--noconfirm", "-Syuwq")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	buf := &bytes.Buffer{}
+	cmd.Stderr = buf
+	err := cmd.Run()
+	if err != nil {
+		log.Println(buf.String())
+	}
 }
 
 func nextExecution(target time.Time) time.Time {
@@ -33,18 +48,15 @@ func Refresher(conf Conf) {
 	if !conf.Refresh.Enabled {
 		return
 	}
-	err := runRefresh()
-	if err != nil {
-		log.Print(err)
+
+	if !allowsPacmanSync() {
+		log.Println("Cannot run pacman -S. Skipping refresh")
+		return
 	}
 
 	for {
 		next := nextExecution(conf.Refresh.At)
 		time.Sleep(time.Until(next))
-
-		err := runRefresh()
-		if err != nil {
-			log.Print(err)
-		}
+		runRefresh()
 	}
 }
