@@ -33,6 +33,10 @@ func Refresher(conf Conf) {
 	if !conf.Refresh.Enabled {
 		return
 	}
+	err := runRefresh()
+	if err != nil {
+		log.Print(err)
+	}
 
 	for {
 		next := nextExecution(conf.Refresh.At)

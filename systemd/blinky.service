@@ -1,0 +1,10 @@
+[Unit]
+Description=blinky pacman monitor
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/blinky
+
+[Install]
+WantedBy=multi-user.target

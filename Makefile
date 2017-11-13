@@ -1,4 +1,4 @@
-PREFIX ?= /
+PREFIX ?=
 VERSION = 0.0.1
 LDFLAGS = "-s -w -X main.ConfDir=/etc/blinky -X main.Version=$(VERSION)"
 
@@ -21,7 +21,11 @@ clean:
 package: build/PKGBUILD
 
 install: build/blinky
-	install -D -m0755 build/blinky $(PREFIX)/usr/bin/blinky
+	install -D -m0644 -t$(PREFIX)/etc/blinky etc/*
+	install -D -m0755 -t$(PREFIX)/usr/bin build/blinky
+	install -D -m0644 -t$(PREFIX)/usr/lib/systemd/system systemd/*
 
 uninstall:
+	rm -r $(PREFIX)/etc/blinky
 	rm $(PREFIX)/usr/bin/blinky
+	rm $(PREFIX)/usr/lib/systemd/system/blinky*.service
