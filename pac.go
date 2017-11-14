@@ -23,6 +23,7 @@ type Snapshot struct {
 type Pac struct {
 	snapshot *Snapshot
 	conf     alpm.PacmanConfig
+	dbpath   string
 	logfile  string
 	term     chan struct{}
 }
@@ -38,18 +39,24 @@ func NewPac(filename string) (*Pac, error) {
 		return nil, err
 	}
 
-	logfile := conf.LogFile
-	if logfile == "" {
-		logfile = "/var/log/pacman.log"
+	pac := Pac{conf: conf, term: make(chan struct{})}
+
+	pac.dbpath = conf.DBPath
+	if pac.dbpath == "" {
+		pac.dbpath = "/var/lib/pacman"
 	}
 
-	pac := Pac{conf: conf, logfile: logfile, term: make(chan struct{})}
+	pac.logfile = conf.LogFile
+	if pac.logfile == "" {
+		pac.logfile = "/var/log/pacman.log"
+	}
 
 	err = pac.startAutoUpdate(pac.term)
 	if err != nil {
 		pac.Close()
 		return nil, err
 	}
+
 	return &pac, nil
 }
 
@@ -72,6 +79,7 @@ func (p *Pac) GetSnapshot() (*Snapshot, error) {
 }
 
 func (p *Pac) UpdateSnapshot() error {
+	log.Println("Updating pacman snapshot")
 	var snapshot Snapshot
 
 	var syncError error
@@ -113,10 +121,10 @@ func (p *Pac) FetchLastSync() (time.Time, error) {
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
+	loc := time.Now().Location()
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, "synchronizing") {
-			loc := time.Now().Location()
 			lastSync, err = time.ParseInLocation("2006-01-02 15:04", line[1:17], loc)
 			if err != nil {
 				return lastSync, err
@@ -167,13 +175,13 @@ func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 		return err
 	}
 
-	err = watcher.Add(p.logfile)
+	err = watcher.Add(p.dbpath)
 	if err != nil {
 		watcher.Close()
 		return err
 	}
 
-	debouncedUpdate := NewDebounced(100, func() {
+	debouncedUpdate := NewDebounced(1000, func() {
 		err := p.UpdateSnapshot()
 		if err != nil {
 			// How to handle?
@@ -184,11 +192,17 @@ func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 	go func() {
 		defer watcher.Close()
 
+		lockfile := p.dbpath + "/db.lck"
+
 		for {
 			select {
 			case event := <-watcher.Events:
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					debouncedUpdate.Call()
+				if event.Name == lockfile {
+					if event.Op&fsnotify.Create == fsnotify.Create {
+						debouncedUpdate.Cancel()
+					} else if event.Op&fsnotify.Remove == fsnotify.Remove {
+						debouncedUpdate.Call()
+					}
 				}
 			case err := <-watcher.Errors:
 				// ???
