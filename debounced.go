@@ -3,30 +3,45 @@ package main
 import "time"
 
 type Debounced struct {
-	delay  time.Duration
-	fn     func()
-	timer  *time.Timer
-	drains []chan struct{}
+	delay    time.Duration
+	fn       func()
+	timer    *time.Timer
+	isActive bool
+	drains   []chan struct{}
 }
 
-func NewDebounced(delay int64, fn func()) Debounced {
-	return Debounced{
+func NewDebounced(delay int64, fn func()) *Debounced {
+	d := Debounced{
 		delay: time.Duration(delay) * time.Millisecond,
 		fn:    fn,
+		timer: time.NewTimer(1 * time.Hour),
 	}
+	d.timer.Stop()
+
+	go func() {
+		for {
+			<-d.timer.C
+			d.CallImmediate()
+		}
+	}()
+
+	return &d
 }
 
-func (d Debounced) IsActive() bool {
-	return d.timer != nil
+func (d *Debounced) IsActive() bool {
+	return d.isActive
+}
+
+func (d *Debounced) Cancel() {
+	d.timer.Stop()
+	d.isActive = false
 }
 
 func (d *Debounced) CallImmediate() {
-	if d.timer != nil {
-		d.timer.Stop()
-		d.timer = nil
-	}
-
+	d.timer.Stop()
+	d.isActive = false
 	d.fn()
+
 	for _, drain := range d.drains {
 		close(drain)
 	}
@@ -34,17 +49,10 @@ func (d *Debounced) CallImmediate() {
 }
 
 func (d *Debounced) Call() {
-	if d.IsActive() {
-		d.timer.Stop()
-		d.timer.Reset(d.delay)
-		return
-	}
-
-	d.timer = time.NewTimer(d.delay)
-	go func() {
-		<-d.timer.C
-		d.CallImmediate()
-	}()
+	d.isActive = true
+	d.timer.Stop()
+	d.timer.Reset(d.delay)
+	return
 }
 
 func (d *Debounced) Drain() <-chan struct{} {
