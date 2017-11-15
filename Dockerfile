@@ -2,7 +2,7 @@ ARG IMAGE=base/archlinux
 FROM ${IMAGE}:latest
 
 RUN pacman --noconfirm \
-           -Syu fakeroot gcc make git go \
+           -Syu fakeroot gcc make git go inotify-tools \
     && rm -rf \
          /var/cache/pacman/pkg/* \
          /var/lib/pacman/sync/* \
