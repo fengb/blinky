@@ -1,17 +1,19 @@
-<html>
-  <h3>Last Synced &mdash; {{ .LastSync }}</h3>
-  <table>
-          <tr>
-                  <th>Name</th>
-                  <th>Version</th>
-                  <th>Upgrade</th>
-          </tr>
-          {{- range .Packages }}
-                  <tr>
-                          <td>{{ .Name }}</td>
-                          <td>{{ .Version }}</td>
-                          <td>{{ .Upgrade }}</td>
-                  </tr>
-          {{- end }}
-  </table>
-</html>
+<!DOCTYPE html>
+
+<h1>blinky</h1>
+<p><strong>Synced:</strong> {{ .LastSync.Format "Jan 2 15:04" }}</h3>
+<p><strong>Status:</strong> {{ .Status }}</p>
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Version</th>
+    <th>Upgrade</th>
+  </tr>
+  {{- range .Packages }}
+    <tr>
+      <td>{{ .Name }}</td>
+      <td>{{ .Version }}</td>
+      <td>{{ .Upgrade }}</td>
+    </tr>
+  {{- end }}
+</table>

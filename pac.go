@@ -16,6 +16,7 @@ type Package struct {
 }
 
 type Snapshot struct {
+	Status   string
 	LastSync time.Time
 	Packages []Package
 }
@@ -80,11 +81,11 @@ func (p *Pac) GetSnapshot() (*Snapshot, error) {
 
 func (p *Pac) UpdateSnapshot() error {
 	log.Println("Updating pacman snapshot")
-	var snapshot Snapshot
 
-	var syncError error
+	var snapshot Snapshot
 	done := make(chan struct{}, 2)
 
+	var syncError error
 	go func() {
 		snapshot.LastSync, syncError = p.FetchLastSync()
 		done <- struct{}{}
@@ -93,6 +94,13 @@ func (p *Pac) UpdateSnapshot() error {
 	var packageError error
 	go func() {
 		snapshot.Packages, packageError = p.FetchPackages()
+		snapshot.Status = "current"
+		for _, pkg := range snapshot.Packages {
+			if pkg.Upgrade != "" {
+				snapshot.Status = "outdated"
+				break
+			}
+		}
 		done <- struct{}{}
 	}()
 
@@ -199,6 +207,9 @@ func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 			case event := <-watcher.Events:
 				if event.Name == lockfile {
 					if event.Op&fsnotify.Create == fsnotify.Create {
+						if p.snapshot != nil {
+							p.snapshot.Status = "updating"
+						}
 						debouncedUpdate.Cancel()
 					} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 						debouncedUpdate.Call()
