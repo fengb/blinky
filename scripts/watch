@@ -1,15 +1,19 @@
 #!/bin/bash
 
-function watch {
-  echo # Force first execution
-  inotifywait --recursive --monitor --include '\.go$' --event modify,create,delete .
+function reap {
+  pkill -g $$
+  exit
+}
+trap "reap" EXIT
+
+function descendant_pids {
+  pgrep -g $$ | grep -v ^"$$"'$'
 }
 
-while read -r file; do
-  if [ -n "$cid" ]; then
-    kill "$cid" 2>/dev/null
-    wait "$cid" 2>/dev/null
-  fi
+while true; do
   go run *.go &
-  cid=$!
-done < <(watch)
+  inotifywait -qq --include "\.go$" --event modify,create,delete .
+  sleep 1 # debounce!
+  kill $(descendant_pids) 2>/dev/null
+  wait
+done
