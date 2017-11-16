@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"github.com/Jguer/go-alpm"
 	"github.com/fsnotify/fsnotify"
+	"github.com/serverhorror/rog-go/reverse"
 	"log"
 	"os"
 	"strings"
@@ -120,32 +120,30 @@ func (p *Pac) UpdateSnapshot() error {
 }
 
 func (p *Pac) FetchLastSync() (time.Time, error) {
-	var lastSync time.Time
+	var nilTime time.Time
 
 	f, err := os.Open(p.logfile)
 	if err != nil {
-		return lastSync, err
+		return nilTime, err
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	loc := time.Now().Location()
+	var line string
+	scanner := reverse.NewScanner(f)
 	for scanner.Scan() {
-		line := scanner.Text()
+		line = scanner.Text()
 		if strings.Contains(line, "synchronizing") {
-			lastSync, err = time.ParseInLocation("2006-01-02 15:04", line[1:17], loc)
-			if err != nil {
-				return lastSync, err
-			}
+			break
 		}
 	}
 
 	err = scanner.Err()
 	if err != nil {
-		return lastSync, err
+		return nilTime, err
 	}
 
-	return lastSync, nil
+	loc := time.Now().Location()
+	return time.ParseInLocation("2006-01-02 15:04", line[1:17], loc)
 }
 
 func (p *Pac) FetchPackages() ([]Package, error) {
