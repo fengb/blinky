@@ -16,6 +16,7 @@ services:
   armv7:
     <<: *base
     container_name: blinky_armv7
+    command: 'bash'
     build:
       context: .
       args:
