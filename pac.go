@@ -11,7 +11,8 @@ import (
 )
 
 type Package struct {
-	alpm.Package
+	Name    string
+	Version string
 	Upgrade string
 }
 
@@ -30,12 +31,13 @@ type Pac struct {
 }
 
 func NewPac(filename string) (*Pac, error) {
-	reader, err := os.Open(filename)
+	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 
-	conf, err := alpm.ParseConfig(reader)
+	conf, err := alpm.ParseConfig(f)
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +153,7 @@ func (p *Pac) FetchPackages() ([]Package, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer handle.Release()
 
 	localDb, err := handle.LocalDb()
 	if err != nil {
@@ -164,7 +167,7 @@ func (p *Pac) FetchPackages() ([]Package, error) {
 
 	packages := []Package{}
 	localDb.PkgCache().ForEach(func(alpmPkg alpm.Package) error {
-		pkg := Package{Package: alpmPkg}
+		pkg := Package{Name: alpmPkg.Name(), Version: alpmPkg.Version()}
 		newAlpmPkg := alpmPkg.NewVersion(syncDbs)
 		if newAlpmPkg != nil {
 			pkg.Upgrade = newAlpmPkg.Version()
