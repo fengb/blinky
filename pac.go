@@ -162,15 +162,16 @@ func (p *Pac) FetchPackages() ([]Package, error) {
 		return nil, err
 	}
 
-	packages := make([]Package, 0)
-	for _, alpmPkg := range localDb.PkgCache().Slice() {
+	packages := []Package{}
+	localDb.PkgCache().ForEach(func(alpmPkg alpm.Package) error {
 		pkg := Package{Package: alpmPkg}
 		newAlpmPkg := alpmPkg.NewVersion(syncDbs)
 		if newAlpmPkg != nil {
 			pkg.Upgrade = newAlpmPkg.Version()
 		}
 		packages = append(packages, pkg)
-	}
+		return nil
+	})
 
 	return packages, nil
 }
