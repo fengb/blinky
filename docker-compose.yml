@@ -1,26 +1,15 @@
-version: '2.0'
+version: '2.1'
 
 services:
-  x64: &base
+  x64:
     container_name: blinky_x64
     build: .
-    ports: [ 9012 ]
-    tty: true
-    stdin_open: true
     command: 'scripts/watch'
+    ports: [ "${PORT:-9012}:9012" ]
     volumes:
       - 'go_src:/opt/go/src'
       - '.:/opt/go/src/blinky'
       - '/opt/go/src/blinky/build'
-
-  armv7:
-    <<: *base
-    container_name: blinky_armv7
-    command: 'bash'
-    build:
-      context: .
-      args:
-        IMAGE: lopsided/archlinux-armv7h
 
 volumes:
   go_src:

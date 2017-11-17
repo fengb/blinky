@@ -1,0 +1,16 @@
+version: '2.1'
+
+services:
+  armv7:
+    extends:
+      file: docker-compose.yml
+      service: x64
+
+    container_name: blinky_armv7
+    build:
+      context: .
+      args:
+        IMAGE: lopsided/archlinux-armv7h
+
+volumes:
+  go_src:
