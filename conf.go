@@ -8,6 +8,12 @@ import (
 
 const hhmm = "15:04"
 
+type Clock interface {
+	Hour() int
+	Minute() int
+	Second() int
+}
+
 type Conf struct {
 	Web struct {
 		Host string
@@ -16,7 +22,7 @@ type Conf struct {
 
 	Refresh struct {
 		Enabled bool
-		At      time.Time
+		At      Clock
 	}
 
 	Templates struct {
@@ -54,9 +60,9 @@ func LoadConfFile(filename string) (Conf, error) {
 	}
 
 	if !sec.HasKey("at") {
-		conf.Refresh.At, _ = time.Parse(hhmm, "02:30")
+		conf.Refresh.At, err = time.Parse(hhmm, "02:30")
 	} else {
-		conf.Refresh.Enabled, err = sec.Key("at").Bool()
+		conf.Refresh.At, err = sec.Key("at").TimeFormat(hhmm)
 		if err != nil {
 			return conf, err
 		}

@@ -29,9 +29,9 @@ func runRefresh() {
 	}
 }
 
-func nextExecution(target time.Time) time.Time {
+func nextExecution(target Clock) time.Time {
 	now := time.Now()
-	todayWithTime := time.Date(
+	targetTime := time.Date(
 		now.Year(),
 		now.Month(),
 		now.Day(),
@@ -41,7 +41,11 @@ func nextExecution(target time.Time) time.Time {
 		0,
 		now.Location(),
 	)
-	return todayWithTime.Add(24 * time.Hour)
+	if now.Before(targetTime) {
+		return targetTime
+	} else {
+		return targetTime.Add(24 * time.Hour)
+	}
 }
 
 func Refresher(conf Conf) {
@@ -56,6 +60,7 @@ func Refresher(conf Conf) {
 
 	for {
 		next := nextExecution(conf.Refresh.At)
+		log.Println("Next refresh:", next)
 		time.Sleep(time.Until(next))
 		runRefresh()
 	}
