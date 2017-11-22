@@ -6,15 +6,15 @@ import (
 	"net/http"
 )
 
-func Serve(conf Conf, pac *Pac) error {
+func Serve(conf Conf) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		snapshot, err := pac.GetSnapshot()
+		snapshot, err := conf.Pac.GetSnapshot()
 		if err != nil {
 			// 500
 			return
 		}
 
-		err = conf.Templates.Index.Execute(w, snapshot)
+		err = conf.Web.Index.Execute(w, snapshot)
 		if err != nil {
 			// ???
 		}

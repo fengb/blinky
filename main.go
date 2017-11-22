@@ -16,11 +16,6 @@ func main() {
 		panic(err)
 	}
 
-	pac, err := NewPac("/etc/pacman.conf")
-	if err != nil {
-		panic(err)
-	}
-
 	go Refresher(conf)
-	Serve(conf, pac)
+	Serve(conf)
 }

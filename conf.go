@@ -16,8 +16,9 @@ type Clock interface {
 
 type Conf struct {
 	Web struct {
-		Host string
-		Port uint
+		Host  string
+		Port  uint
+		Index *template.Template
 	}
 
 	Refresh struct {
@@ -25,9 +26,7 @@ type Conf struct {
 		At      Clock
 	}
 
-	Templates struct {
-		Index *template.Template
-	}
+	Pac *Pac
 }
 
 func LoadConfFile(filename string) (Conf, error) {
@@ -77,7 +76,12 @@ func LoadConfDir(dir string) (Conf, error) {
 		return conf, err
 	}
 
-	conf.Templates.Index, err = template.ParseFiles(dir + "/index.html.tmpl")
+	conf.Web.Index, err = template.ParseFiles(dir + "/index.html.tmpl")
+	if err != nil {
+		return conf, err
+	}
+
+	conf.Pac, err = NewPac("/etc/pacman.conf")
 	if err != nil {
 		return conf, err
 	}
