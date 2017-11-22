@@ -48,7 +48,7 @@ func nextExecution(target Clock) time.Time {
 	}
 }
 
-func Refresher(conf Conf) {
+func Refresher(conf *Conf) {
 	if !conf.Refresh.Enabled {
 		return
 	}

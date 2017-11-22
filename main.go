@@ -11,7 +11,7 @@ func main() {
 		ConfDir = "etc"
 	}
 
-	conf, err := LoadConfDir(ConfDir)
+	conf, err := NewConf(ConfDir)
 	if err != nil {
 		panic(err)
 	}

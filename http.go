@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func Serve(conf Conf) error {
+func Serve(conf *Conf) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		snapshot, err := conf.Pac.GetSnapshot()
 		if err != nil {

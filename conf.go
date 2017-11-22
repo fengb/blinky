@@ -27,64 +27,75 @@ type Conf struct {
 	}
 
 	Pac *Pac
+
+	dir string
 }
 
-func LoadConfFile(filename string) (Conf, error) {
-	var conf Conf
-	cfg, err := ini.Load(filename)
-	if err != nil {
-		return conf, err
-	}
-
-	sec := cfg.Section("http")
+func (c *Conf) parseHttp(sec *ini.Section) error {
+	var err error
 	if sec.HasKey("host") {
-		conf.Http.Host = sec.Key("host").Value()
+		c.Http.Host = sec.Key("host").Value()
 	}
 
 	if !sec.HasKey("port") {
-		conf.Http.Port = 9012
+		c.Http.Port = 9012
 	} else {
-		conf.Http.Port, err = sec.Key("port").Uint()
+		c.Http.Port, err = sec.Key("port").Uint()
 		if err != nil {
-			return conf, err
+			return err
 		}
 	}
 
-	sec = cfg.Section("refresh")
+	c.Http.Index, err = template.ParseFiles(c.dir + "/index.html.tmpl")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Conf) parseRefresh(sec *ini.Section) error {
+	var err error
 	if sec.HasKey("enabled") {
-		conf.Refresh.Enabled, err = sec.Key("enabled").Bool()
+		c.Refresh.Enabled, err = sec.Key("enabled").Bool()
 		if err != nil {
-			return conf, err
+			return err
 		}
 	}
 
 	if !sec.HasKey("at") {
-		conf.Refresh.At, err = time.Parse(hhmm, "02:30")
+		c.Refresh.At, err = time.Parse(hhmm, "02:30")
 	} else {
-		conf.Refresh.At, err = sec.Key("at").TimeFormat(hhmm)
+		c.Refresh.At, err = sec.Key("at").TimeFormat(hhmm)
 		if err != nil {
-			return conf, err
+			return err
 		}
 	}
 
-	return conf, err
+	return nil
 }
 
-func LoadConfDir(dir string) (Conf, error) {
-	conf, err := LoadConfFile(dir + "/blinky.conf")
+func NewConf(dir string) (*Conf, error) {
+	conf := Conf{dir: dir}
+	cfg, err := ini.Load(conf.dir + "/blinky.conf")
 	if err != nil {
-		return conf, err
+		return nil, err
 	}
 
-	conf.Http.Index, err = template.ParseFiles(dir + "/index.html.tmpl")
+	err = conf.parseHttp(cfg.Section("http"))
 	if err != nil {
-		return conf, err
+		return nil, err
+	}
+
+	err = conf.parseRefresh(cfg.Section("refresh"))
+	if err != nil {
+		return nil, err
 	}
 
 	conf.Pac, err = NewPac("/etc/pacman.conf")
 	if err != nil {
-		return conf, err
+		return nil, err
 	}
 
-	return conf, err
+	return &conf, err
 }
