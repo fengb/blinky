@@ -28,7 +28,37 @@ type Conf struct {
 
 	Pac *Pac
 
-	dir string
+	dir     string
+	watches []chan struct{}
+}
+
+func (c *Conf) Watch() <-chan struct{} {
+	watch := make(chan struct{}, 1)
+	c.watches = append(c.watches, watch)
+	return watch
+}
+
+func (c *Conf) Reload() error {
+	cfg, err := ini.Load(c.dir + "/blinky.conf")
+	if err != nil {
+		return err
+	}
+
+	err = c.parseHttp(cfg.Section("http"))
+	if err != nil {
+		return err
+	}
+
+	err = c.parseRefresh(cfg.Section("refresh"))
+	if err != nil {
+		return err
+	}
+
+	for _, watch := range c.watches {
+		watch <- struct{}{}
+	}
+
+	return nil
 }
 
 func (c *Conf) parseHttp(sec *ini.Section) error {
@@ -72,26 +102,19 @@ func (c *Conf) parseRefresh(sec *ini.Section) error {
 }
 
 func NewConf(dir string) (*Conf, error) {
+	var err error
 	conf := Conf{dir: dir}
-	cfg, err := ini.Load(conf.dir + "/blinky.conf")
-	if err != nil {
-		return nil, err
-	}
-
-	err = conf.parseHttp(cfg.Section("http"))
-	if err != nil {
-		return nil, err
-	}
-
-	err = conf.parseRefresh(cfg.Section("refresh"))
-	if err != nil {
-		return nil, err
-	}
 
 	conf.Pac, err = NewPac("/etc/pacman.conf")
 	if err != nil {
 		return nil, err
 	}
 
-	return &conf, err
+	err = conf.Reload()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &conf, nil
 }
