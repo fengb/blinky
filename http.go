@@ -14,13 +14,13 @@ func Serve(conf Conf) error {
 			return
 		}
 
-		err = conf.Web.Index.Execute(w, snapshot)
+		err = conf.Http.Index.Execute(w, snapshot)
 		if err != nil {
 			// ???
 		}
 	})
 
-	listenString := fmt.Sprintf("%s:%d", conf.Web.Host, conf.Web.Port)
+	listenString := fmt.Sprintf("%s:%d", conf.Http.Host, conf.Http.Port)
 	log.Println("Listening on", listenString)
 	http.ListenAndServe(listenString, nil)
 	return nil

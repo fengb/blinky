@@ -15,7 +15,7 @@ type Clock interface {
 }
 
 type Conf struct {
-	Web struct {
+	Http struct {
 		Host  string
 		Port  uint
 		Index *template.Template
@@ -36,15 +36,15 @@ func LoadConfFile(filename string) (Conf, error) {
 		return conf, err
 	}
 
-	sec := cfg.Section("web")
+	sec := cfg.Section("http")
 	if sec.HasKey("host") {
-		conf.Web.Host = sec.Key("host").Value()
+		conf.Http.Host = sec.Key("host").Value()
 	}
 
 	if !sec.HasKey("port") {
-		conf.Web.Port = 9012
+		conf.Http.Port = 9012
 	} else {
-		conf.Web.Port, err = sec.Key("port").Uint()
+		conf.Http.Port, err = sec.Key("port").Uint()
 		if err != nil {
 			return conf, err
 		}
@@ -76,7 +76,7 @@ func LoadConfDir(dir string) (Conf, error) {
 		return conf, err
 	}
 
-	conf.Web.Index, err = template.ParseFiles(dir + "/index.html.tmpl")
+	conf.Http.Index, err = template.ParseFiles(dir + "/index.html.tmpl")
 	if err != nil {
 		return conf, err
 	}
