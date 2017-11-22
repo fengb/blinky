@@ -31,6 +31,31 @@ type Conf struct {
 	dir string
 }
 
+func NewConf(dir string) (*Conf, error) {
+	conf := Conf{dir: dir}
+	cfg, err := ini.Load(conf.dir + "/blinky.conf")
+	if err != nil {
+		return nil, err
+	}
+
+	err = conf.parseHttp(cfg.Section("http"))
+	if err != nil {
+		return nil, err
+	}
+
+	err = conf.parseRefresh(cfg.Section("refresh"))
+	if err != nil {
+		return nil, err
+	}
+
+	conf.Pac, err = NewPac("/etc/pacman.conf")
+	if err != nil {
+		return nil, err
+	}
+
+	return &conf, err
+}
+
 func (c *Conf) parseHttp(sec *ini.Section) error {
 	var err error
 	if sec.HasKey("listen") {
@@ -69,29 +94,4 @@ func (c *Conf) parseRefresh(sec *ini.Section) error {
 	}
 
 	return nil
-}
-
-func NewConf(dir string) (*Conf, error) {
-	conf := Conf{dir: dir}
-	cfg, err := ini.Load(conf.dir + "/blinky.conf")
-	if err != nil {
-		return nil, err
-	}
-
-	err = conf.parseHttp(cfg.Section("http"))
-	if err != nil {
-		return nil, err
-	}
-
-	err = conf.parseRefresh(cfg.Section("refresh"))
-	if err != nil {
-		return nil, err
-	}
-
-	conf.Pac, err = NewPac("/etc/pacman.conf")
-	if err != nil {
-		return nil, err
-	}
-
-	return &conf, err
 }
