@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 )
@@ -20,8 +19,7 @@ func Serve(conf *Conf) error {
 		}
 	})
 
-	listenString := fmt.Sprintf("%s:%d", conf.Http.Host, conf.Http.Port)
-	log.Println("Listening on", listenString)
-	http.ListenAndServe(listenString, nil)
+	log.Println("Listening on", conf.Http.Listen)
+	http.ListenAndServe(conf.Http.Listen, nil)
 	return nil
 }

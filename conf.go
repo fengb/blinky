@@ -3,6 +3,7 @@ package main
 import (
 	"gopkg.in/ini.v1"
 	"html/template"
+	"net"
 	"time"
 )
 
@@ -16,9 +17,8 @@ type Clock interface {
 
 type Conf struct {
 	Http struct {
-		Host  string
-		Port  uint
-		Index *template.Template
+		Listen string
+		Index  *template.Template
 	}
 
 	Refresh struct {
@@ -33,17 +33,13 @@ type Conf struct {
 
 func (c *Conf) parseHttp(sec *ini.Section) error {
 	var err error
-	if sec.HasKey("host") {
-		c.Http.Host = sec.Key("host").Value()
+	if sec.HasKey("listen") {
+		c.Http.Listen = sec.Key("listen").Value()
 	}
 
-	if !sec.HasKey("port") {
-		c.Http.Port = 9012
-	} else {
-		c.Http.Port, err = sec.Key("port").Uint()
-		if err != nil {
-			return err
-		}
+	_, _, err = net.SplitHostPort(c.Http.Listen)
+	if err != nil {
+		return err
 	}
 
 	c.Http.Index, err = template.ParseFiles(c.dir + "/index.html.tmpl")
