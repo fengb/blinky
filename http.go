@@ -7,6 +7,11 @@ import (
 
 func Serve(conf *Conf) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" || r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+
 		snapshot, err := conf.Pac.GetSnapshot()
 		if err != nil {
 			// 500
