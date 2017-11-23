@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"log"
 	"os/exec"
 	"time"
@@ -10,33 +11,50 @@ import (
 var root = []byte("root")
 
 type Refresh struct {
-	conf *Conf
+	conf  *Conf
+	timer *time.Timer
 }
 
 func NewRefresh(conf *Conf) (Actor, error) {
-	if !conf.Refresh.Enabled {
-		//return
-	}
+	timer := time.NewTimer(1 * time.Hour)
+	timer.Stop()
 
-	if !allowsPacmanSync() {
-		log.Println("Cannot run pacman -S. Skipping refresh")
-		//return
+	r := Refresh{conf, timer}
+
+	err := r.UpdateConf(conf)
+	if err != nil {
+		return nil, err
 	}
 
 	go func() {
 		for {
-			next := nextExecution(conf.Refresh.At)
-			log.Println("Next refresh:", next)
-			time.Sleep(time.Until(next))
+			<-timer.C
 			runRefresh()
+			r.scheduleNext()
 		}
 	}()
 
-	return &Refresh{conf}, nil
+	return &r, nil
 }
 
 func (r *Refresh) UpdateConf(conf *Conf) error {
+	if conf.Refresh.Enabled && !allowsPacmanSync() {
+		return errors.New("Cannot run pacman -S")
+	}
+
+	r.conf = conf
+	r.scheduleNext()
+
 	return nil
+}
+
+func (r *Refresh) scheduleNext() {
+	r.timer.Stop()
+	if r.conf.Refresh.Enabled {
+		next := nextExecution(r.conf.Refresh.At)
+		log.Println("Next refresh:", next)
+		r.timer.Reset(time.Until(next))
+	}
 }
 
 func allowsPacmanSync() bool {
