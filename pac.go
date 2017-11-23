@@ -27,7 +27,7 @@ type Pac struct {
 	conf     alpm.PacmanConfig
 	dbpath   string
 	logfile  string
-	term     chan struct{}
+	watcher  *fsnotify.Watcher
 }
 
 func NewPac(filename string) (*Pac, error) {
@@ -42,7 +42,7 @@ func NewPac(filename string) (*Pac, error) {
 		return nil, err
 	}
 
-	pac := Pac{conf: conf, term: make(chan struct{})}
+	pac := Pac{conf: conf}
 
 	pac.dbpath = conf.DBPath
 	if pac.dbpath == "" {
@@ -54,22 +54,32 @@ func NewPac(filename string) (*Pac, error) {
 		pac.logfile = "/var/log/pacman.log"
 	}
 
-	err = pac.startAutoUpdate(pac.term)
+	pac.watcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+
+	err = pac.watcher.Add(pac.dbpath)
 	if err != nil {
 		pac.Close()
 		return nil, err
 	}
 
+	go pac.startAutoUpdate()
+
 	return &pac, nil
 }
 
-func (p *Pac) Close() {
-	if p.term == nil {
-		return
+func (p *Pac) Close() error {
+	if p.watcher != nil {
+		err := p.watcher.Close()
+		if err != nil {
+			return err
+		}
+		p.watcher = nil
 	}
 
-	close(p.term)
-	p.term = nil
+	return nil
 }
 
 func (p *Pac) GetSnapshot() (*Snapshot, error) {
@@ -172,17 +182,8 @@ func (p *Pac) FetchPackages() ([]Package, error) {
 	return packages, nil
 }
 
-func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-
-	err = watcher.Add(p.dbpath)
-	if err != nil {
-		watcher.Close()
-		return err
-	}
+func (p *Pac) startAutoUpdate() {
+	lockfile := p.dbpath + "/db.lck"
 
 	debouncedUpdate := NewDebounced(1000, func() {
 		err := p.UpdateSnapshot()
@@ -192,32 +193,31 @@ func (p *Pac) startAutoUpdate(term <-chan struct{}) error {
 		}
 	})
 
-	go func() {
-		defer watcher.Close()
+	var closedEvent fsnotify.Event
+	var closedErr error
 
-		lockfile := p.dbpath + "/db.lck"
-
-		for {
-			select {
-			case event := <-watcher.Events:
-				if event.Name == lockfile {
-					if event.Op&fsnotify.Create == fsnotify.Create {
-						if p.snapshot != nil {
-							p.snapshot.Status = "updating"
-						}
-						debouncedUpdate.Cancel()
-					} else if event.Op&fsnotify.Remove == fsnotify.Remove {
-						debouncedUpdate.Call()
-					}
-				}
-			case err := <-watcher.Errors:
-				// ???
-				log.Println(err)
-			case <-term:
+	for {
+		select {
+		case event := <-p.watcher.Events:
+			if event == closedEvent {
 				return
 			}
-		}
-	}()
 
-	return nil
+			if event.Name == lockfile {
+				if event.Op&fsnotify.Create == fsnotify.Create {
+					if p.snapshot != nil {
+						p.snapshot.Status = "updating"
+					}
+					debouncedUpdate.Cancel()
+				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
+					debouncedUpdate.Call()
+				}
+			}
+		case err := <-p.watcher.Errors:
+			if err == closedErr {
+				return
+			}
+			log.Println(err)
+		}
+	}
 }
