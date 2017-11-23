@@ -13,14 +13,26 @@ var (
 	Version string
 )
 
-func Signal(conf *Conf) {
+type Actor interface {
+	UpdateConf(conf *Conf) error
+}
+
+func watchSignals(actors ...Actor) {
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGHUP)
 	for _ = range c {
 		log.Printf("HUP received - reloading")
-		err := conf.Reload()
+
+		conf, err := NewConf(ConfDir)
 		if err != nil {
 			log.Println(err)
+		}
+
+		for _, actor := range actors {
+			err = actor.UpdateConf(conf)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}
 }
@@ -35,8 +47,13 @@ func main() {
 		panic(err)
 	}
 
-	go Signal(conf)
-	go Refresher(conf)
-	go Serve(conf)
-	select {}
+	refresh, err := NewRefresh(conf)
+	if err != nil {
+		panic(err)
+	}
+	http, err := NewHttp(conf)
+	if err != nil {
+		panic(err)
+	}
+	watchSignals(refresh, http)
 }

@@ -5,7 +5,11 @@ import (
 	"net/http"
 )
 
-func Serve(conf *Conf) error {
+type Http struct {
+	conf *Conf
+}
+
+func NewHttp(conf *Conf) (Actor, error) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" || r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -24,7 +28,13 @@ func Serve(conf *Conf) error {
 		}
 	})
 
-	log.Println("Listening on", conf.Http.Listen)
-	http.ListenAndServe(conf.Http.Listen, nil)
+	go func() {
+		log.Println("Listening on", conf.Http.Listen)
+		http.ListenAndServe(conf.Http.Listen, nil)
+	}()
+	return &Http{conf}, nil
+}
+
+func (h *Http) UpdateConf(conf *Conf) error {
 	return nil
 }
