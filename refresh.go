@@ -58,6 +58,9 @@ func Refresher(conf *Conf) {
 	timer := time.NewTimer(1 * time.Hour)
 
 	setupTimer := func() {
+		conf.Lock()
+		defer conf.Unlock()
+
 		if conf.Refresh.Enabled {
 			next := nextExecution(conf.Refresh.At)
 			log.Println("Next refresh:", next)

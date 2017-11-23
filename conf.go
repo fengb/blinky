@@ -4,6 +4,7 @@ import (
 	"gopkg.in/ini.v1"
 	"html/template"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -15,6 +16,17 @@ type Clock interface {
 	Second() int
 }
 
+type Conf struct {
+	sync.Mutex
+
+	Http    ConfHttp
+	Refresh ConfRefresh
+	Pac     *Pac
+
+	dir     string
+	watches []chan struct{}
+}
+
 type ConfHttp struct {
 	Listen string
 	Index  *template.Template
@@ -23,15 +35,6 @@ type ConfHttp struct {
 type ConfRefresh struct {
 	Enabled bool
 	At      Clock
-}
-
-type Conf struct {
-	Http    ConfHttp
-	Refresh ConfRefresh
-	Pac     *Pac
-
-	dir     string
-	watches []chan struct{}
 }
 
 func NewConf(dir string) (*Conf, error) {
@@ -64,15 +67,20 @@ func (c *Conf) Reload() error {
 		return err
 	}
 
-	c.Http, err = parseHttp(cfg.Section("http"), c.dir)
+	http, err := parseHttp(cfg.Section("http"), c.dir)
 	if err != nil {
 		return err
 	}
 
-	c.Refresh, err = parseRefresh(cfg.Section("refresh"))
+	refresh, err := parseRefresh(cfg.Section("refresh"))
 	if err != nil {
 		return err
 	}
+
+	c.Lock()
+	c.Http = http
+	c.Refresh = refresh
+	c.Unlock()
 
 	for _, watch := range c.watches {
 		watch <- struct{}{}

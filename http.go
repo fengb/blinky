@@ -12,13 +12,18 @@ func Serve(conf *Conf) {
 			return
 		}
 
-		snapshot, err := conf.Pac.GetSnapshot()
+		conf.Lock()
+		pac := conf.Pac
+		index := conf.Http.Index
+		conf.Unlock()
+
+		snapshot, err := pac.GetSnapshot()
 		if err != nil {
 			// 500
 			return
 		}
 
-		err = conf.Http.Index.Execute(w, snapshot)
+		err = index.Execute(w, snapshot)
 		if err != nil {
 			// ???
 		}
@@ -29,7 +34,7 @@ func Serve(conf *Conf) {
 	listenServer := func(addr string) http.Server {
 		srv := http.Server{Addr: addr}
 		go func() {
-			log.Println("Listening on", conf.Http.Listen)
+			log.Println("Listening on", addr)
 			err := srv.ListenAndServe()
 			if err != nil {
 				panic(err)
@@ -40,14 +45,18 @@ func Serve(conf *Conf) {
 
 	srv := listenServer(conf.Http.Listen)
 	for _ = range confWatch {
-		if conf.Http.Listen != srv.Addr {
+		conf.Lock()
+		newAddr := conf.Http.Listen
+		conf.Unlock()
+
+		if newAddr != srv.Addr {
 			// TODO: why doesn't this stop listening?
 			err := srv.Shutdown(nil)
 			if err != nil {
 				panic(err)
 			}
 
-			srv = listenServer(conf.Http.Listen)
+			srv = listenServer(newAddr)
 		}
 	}
 }
