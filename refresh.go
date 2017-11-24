@@ -2,12 +2,60 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"log"
 	"os/exec"
 	"time"
 )
 
 var root = []byte("root")
+
+type Refresh struct {
+	conf  *Conf
+	timer *time.Timer
+}
+
+func NewRefresh(conf *Conf) (Actor, error) {
+	timer := time.NewTimer(1 * time.Hour)
+	timer.Stop()
+
+	r := Refresh{conf, timer}
+
+	err := r.UpdateConf(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for {
+			<-timer.C
+			runRefresh()
+			r.scheduleNext()
+		}
+	}()
+
+	return &r, nil
+}
+
+func (r *Refresh) UpdateConf(conf *Conf) error {
+	if conf.Refresh.Enabled && !allowsPacmanSync() {
+		return errors.New("Cannot run pacman -S")
+	}
+
+	r.conf = conf
+	r.scheduleNext()
+
+	return nil
+}
+
+func (r *Refresh) scheduleNext() {
+	r.timer.Stop()
+	if r.conf.Refresh.Enabled {
+		next := nextExecution(r.conf.Refresh.At)
+		log.Println("Next refresh:", next)
+		r.timer.Reset(time.Until(next))
+	}
+}
 
 func allowsPacmanSync() bool {
 	// Ideally use an exit status but all errors are 1
@@ -45,23 +93,5 @@ func nextExecution(target Clock) time.Time {
 		return targetTime
 	} else {
 		return targetTime.Add(24 * time.Hour)
-	}
-}
-
-func Refresher(conf *Conf) {
-	if !conf.Refresh.Enabled {
-		return
-	}
-
-	if !allowsPacmanSync() {
-		log.Println("Cannot run pacman -S. Skipping refresh")
-		return
-	}
-
-	for {
-		next := nextExecution(conf.Refresh.At)
-		log.Println("Next refresh:", next)
-		time.Sleep(time.Until(next))
-		runRefresh()
 	}
 }
