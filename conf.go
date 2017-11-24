@@ -56,6 +56,10 @@ func NewConf(dir string) (*Conf, error) {
 	return &conf, err
 }
 
+func (c *Conf) Close() error {
+	return c.Pac.Close()
+}
+
 func (c *Conf) parseHttp(sec *ini.Section) error {
 	var err error
 	if sec.HasKey("listen") {

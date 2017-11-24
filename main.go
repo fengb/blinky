@@ -17,16 +17,20 @@ type Actor interface {
 	UpdateConf(conf *Conf) error
 }
 
-func watchSignals(actors ...Actor) {
+func watchSignals(conf *Conf, actors ...Actor) {
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGHUP)
 	for _ = range c {
 		log.Printf("HUP received - reloading")
 
-		conf, err := NewConf(ConfDir)
+		newConf, err := NewConf(ConfDir)
 		if err != nil {
 			log.Println(err)
+			continue
 		}
+
+		conf.Close()
+		conf = newConf
 
 		for _, actor := range actors {
 			err = actor.UpdateConf(conf)
@@ -55,5 +59,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	watchSignals(refresh, http)
+
+	watchSignals(conf, refresh, http)
 }
