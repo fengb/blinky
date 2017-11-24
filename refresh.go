@@ -49,19 +49,38 @@ func nextExecution(target Clock) time.Time {
 }
 
 func Refresher(conf *Conf) {
-	if !conf.Refresh.Enabled {
-		return
-	}
-
 	if !allowsPacmanSync() {
 		log.Println("Cannot run pacman -S. Skipping refresh")
 		return
 	}
 
+	confUpdate := conf.Watch()
+	timer := time.NewTimer(1 * time.Hour)
+
+	setupTimer := func() {
+		conf.Lock()
+		defer conf.Unlock()
+
+		if conf.Refresh.Enabled {
+			next := nextExecution(conf.Refresh.At)
+			log.Println("Next refresh:", next)
+			timer.Reset(time.Until(next))
+		} else {
+			timer.Stop()
+		}
+	}
+
+	setupTimer()
+
 	for {
-		next := nextExecution(conf.Refresh.At)
-		log.Println("Next refresh:", next)
-		time.Sleep(time.Until(next))
-		runRefresh()
+		select {
+		case <-confUpdate:
+			timer.Stop()
+			setupTimer()
+		case <-timer.C:
+			timer.Stop()
+			runRefresh()
+			setupTimer()
+		}
 	}
 }
