@@ -85,36 +85,29 @@ func (p *Pac) UpdateSnapshot() error {
 	log.Println("Updating pacman snapshot")
 
 	var snapshot Snapshot
-	done := make(chan struct{}, 2)
 
-	var syncError error
-	go func() {
-		snapshot.LastSync, syncError = p.FetchLastSync()
-		done <- struct{}{}
-	}()
-
-	var packageError error
-	go func() {
-		snapshot.Packages, packageError = p.FetchPackages()
-		snapshot.Status = "current"
-		for _, pkg := range snapshot.Packages {
-			if pkg.Upgrade != "" {
-				snapshot.Status = "outdated"
-				break
+	err := Parallel(
+		func() error {
+			var err error
+			snapshot.LastSync, err = p.FetchLastSync()
+			return err
+		},
+		func() error {
+			var err error
+			snapshot.Packages, err = p.FetchPackages()
+			snapshot.Status = "current"
+			for _, pkg := range snapshot.Packages {
+				if pkg.Upgrade != "" {
+					snapshot.Status = "outdated"
+					break
+				}
 			}
-		}
-		done <- struct{}{}
-	}()
+			return err
+		},
+	)
 
-	<-done
-	<-done
-
-	if syncError != nil {
-		return syncError
-	}
-
-	if packageError != nil {
-		return packageError
+	if err != nil {
+		return err
 	}
 
 	p.snapshot = &snapshot
