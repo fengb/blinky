@@ -65,7 +65,8 @@ func NewPac(filename string) (*Pac, error) {
 		return nil, err
 	}
 
-	go pac.startAutoUpdate()
+	go pac.watchChanges()
+	go pac.watchErrors()
 
 	return &pac, nil
 }
@@ -94,7 +95,7 @@ func (p *Pac) GetSnapshot() (*Snapshot, error) {
 func (p *Pac) UpdateSnapshot() error {
 	log.Println("Updating pacman snapshot")
 
-	var snapshot Snapshot
+	snapshot := Snapshot{}
 
 	err := Parallel(
 		func() error {
@@ -182,9 +183,7 @@ func (p *Pac) FetchPackages() ([]Package, error) {
 	return packages, nil
 }
 
-func (p *Pac) startAutoUpdate() {
-	lockfile := p.dbpath + "/db.lck"
-
+func (p *Pac) watchChanges() {
 	debouncedUpdate := NewDebounced(1000, func() {
 		err := p.UpdateSnapshot()
 		if err != nil {
@@ -193,31 +192,22 @@ func (p *Pac) startAutoUpdate() {
 		}
 	})
 
-	var closedEvent fsnotify.Event
-	var closedErr error
-
-	for {
-		select {
-		case event := <-p.watcher.Events:
-			if event == closedEvent {
-				return
-			}
-
-			if event.Name == lockfile {
-				if event.Op&fsnotify.Create == fsnotify.Create {
-					if p.snapshot != nil {
-						p.snapshot.Status = "updating"
-					}
-					debouncedUpdate.Cancel()
-				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
-					debouncedUpdate.Call()
+	for event := range p.watcher.Events {
+		if strings.HasSuffix(event.Name, "db.lck") {
+			if event.Op&fsnotify.Create == fsnotify.Create {
+				if p.snapshot != nil {
+					p.snapshot.Status = "updating"
 				}
+				debouncedUpdate.Cancel()
+			} else if event.Op&fsnotify.Remove == fsnotify.Remove {
+				debouncedUpdate.Call()
 			}
-		case err := <-p.watcher.Errors:
-			if err == closedErr {
-				return
-			}
-			log.Println(err)
 		}
+	}
+}
+
+func (p *Pac) watchErrors() {
+	for err := range p.watcher.Errors {
+		log.Println(err)
 	}
 }
