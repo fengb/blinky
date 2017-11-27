@@ -126,11 +126,9 @@ func (p *Pac) UpdateSnapshot() error {
 }
 
 func (p *Pac) FetchLastSync() (time.Time, error) {
-	var nilTime time.Time
-
 	f, err := os.Open(p.logfile)
 	if err != nil {
-		return nilTime, err
+		return time.Time{}, err
 	}
 	defer f.Close()
 
@@ -145,7 +143,7 @@ func (p *Pac) FetchLastSync() (time.Time, error) {
 
 	err = scanner.Err()
 	if err != nil {
-		return nilTime, err
+		return time.Time{}, err
 	}
 
 	loc := time.Now().Location()
