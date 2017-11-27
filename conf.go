@@ -17,8 +17,8 @@ type Clock interface {
 
 type Conf struct {
 	Http struct {
-		Listen string
-		Index  *template.Template
+		Addr  string
+		Index *template.Template
 	}
 
 	Refresh struct {
@@ -62,11 +62,11 @@ func (c *Conf) Close() error {
 
 func (c *Conf) parseHttp(sec *ini.Section) error {
 	var err error
-	if sec.HasKey("listen") {
-		c.Http.Listen = sec.Key("listen").Value()
+	if sec.HasKey("addr") {
+		c.Http.Addr = sec.Key("addr").Value()
 	}
 
-	_, _, err = net.SplitHostPort(c.Http.Listen)
+	_, _, err = net.SplitHostPort(c.Http.Addr)
 	if err != nil {
 		return err
 	}

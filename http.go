@@ -43,8 +43,8 @@ func (h *Http) Index(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Http) UpdateConf(conf *Conf) error {
-	if h.srv == nil || h.srv.Addr != conf.Http.Listen {
-		srv, err := startServer(conf.Http.Listen)
+	if h.srv == nil || h.srv.Addr != conf.Http.Addr {
+		srv, err := startServer(conf.Http.Addr)
 		if err != nil {
 			return err
 		}
