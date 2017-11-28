@@ -17,7 +17,7 @@ build/PKGBUILD: build/PKGBUILD-v$(VERSION)
 
 .SECONDARY:
 
-.PHONY: build clean pkgbuild install uninstall
+.PHONY: build clean pkgbuild makepkg install uninstall
 
 build: build/blinky
 
@@ -25,6 +25,11 @@ clean:
 	rm -rf build/*
 
 pkgbuild: build/PKGBUILD
+
+makepkg: USER ?= nobody
+makepkg: build/PKGBUILD
+	chmod 777 build
+	cd build && su -s /bin/bash -c "makepkg --clean" $(USER)
 
 install: build
 	install -D -m0644 -t$(PREFIX)/etc/blinky etc/*
