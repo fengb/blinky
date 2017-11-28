@@ -9,8 +9,8 @@ build/v%.tar.gz:
 	@mkdir -p build
 	curl -fsL -o "$@" "https://github.com/fengb/blinky/archive/$(@F)"
 
-build/PKGBUILD-v%: build/v%.tar.gz
-	scripts/pkgbuild "$<" "$@"
+build/PKGBUILD-v%: build/v%.tar.gz scripts/PKGBUILD
+	SHA256=$$(scripts/sha256 "$<") scripts/expand_env scripts/PKGBUILD >"$@"
 
 build/PKGBUILD: build/PKGBUILD-v$(VERSION)
 	cp "$<" "$@"

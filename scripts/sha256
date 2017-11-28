@@ -1,0 +1,4 @@
+#!/usr/bin/env perl
+
+use Digest::SHA;
+print Digest::SHA->new(256)->addfile(shift)->hexdigest;

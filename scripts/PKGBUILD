@@ -1,22 +1,5 @@
-#!/bin/bash
-
-set -euo pipefail
-
-: ${VERSION?}
-if ! command -v sha256sum >&-; then
-  function sha256sum {
-    shasum -a 256 "$@"
-  }
-fi
-SHA256=$(sha256sum "${1?}" | cut -d ' ' -f 1)
-
-if [ -n "${2-}" ]; then
-	exec >"$2"
-fi
-
-sed -e "s/VERSION/${VERSION}/" -e "s/SHA256/${SHA256}/" <<'EOF'
 pkgname=blinky
-pkgver=VERSION
+pkgver=$VERSION
 pkgrel=1
 pkgdesc="Monitor Pacman changes"
 arch=('x86_64' 'armv7h')
@@ -24,7 +7,7 @@ url="https://github.com/fengb/blinky"
 license=('MIT')
 makedepends=('go')
 source=("https://github.com/fengb/blinky/archive/v${pkgver}.tar.gz")
-sha256sums=('SHA256')
+sha256sums=("$SHA256")
 
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}"
@@ -35,4 +18,3 @@ package() {
   cd "${srcdir}/${pkgname}-${pkgver}"
   make PREFIX="${pkgdir}" install
 }
-EOF
