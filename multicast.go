@@ -10,6 +10,7 @@ const maxPacketSize = 512
 
 type Multicast struct {
 	conf          *Conf
+	aes           *Aes
 	listen        *net.UDPConn
 	ping          *time.Ticker
 	pingLocalAddr net.Addr
@@ -37,7 +38,6 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 			log.Println(err)
 		}
 	}
-	m.listen = listen
 
 	ping, err := m.updatePing(conf)
 	if err != nil {
@@ -46,8 +46,15 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	if m.ping != ping && m.ping != nil {
 		m.ping.Stop()
 	}
-	m.ping = ping
 
+	aes, err := NewAes(conf.Multicast.Secret)
+	if err != nil {
+		return err
+	}
+
+	m.aes = aes
+	m.listen = listen
+	m.ping = ping
 	m.conf = conf
 
 	return nil
@@ -113,7 +120,11 @@ func (m *Multicast) updatePing(conf *Conf) (*time.Ticker, error) {
 	go func() {
 		defer conn.Close()
 		for _ = range ticker.C {
-			conn.Write([]byte("Send Packet"))
+			msg, err := m.aes.Encrypt([]byte("Send Packet"))
+			if err != nil {
+				log.Println(err)
+			}
+			conn.Write(msg)
 		}
 	}()
 
@@ -127,5 +138,9 @@ func (m *Multicast) handleListen(src *net.UDPAddr, packet []byte) {
 	}
 
 	names, _ := net.LookupAddr(src.IP.String())
-	log.Println("Received from", names, src, string(packet))
+	msg, err := m.aes.Decrypt(packet)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println("Received from", names, src, string(msg))
 }

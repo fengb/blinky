@@ -27,9 +27,10 @@ type Conf struct {
 	}
 
 	Multicast struct {
-		Addr   string
 		Listen bool
 		Ping   time.Duration
+		Addr   string
+		Secret []byte
 	}
 
 	Pac *Pac
@@ -134,6 +135,10 @@ func (c *Conf) parseMulticast(sec *ini.Section) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if sec.HasKey("secret") {
+		c.Multicast.Secret = []byte(sec.Key("secret").Value())
 	}
 
 	return nil
