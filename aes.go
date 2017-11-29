@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -13,7 +14,10 @@ type Aes struct {
 
 func NewAes(key []byte) (*Aes, error) {
 	a := Aes{}
-	cip, err := aes.NewCipher(a.pad(key))
+	if !a.isAligned(key) {
+		key = a.pad(key)
+	}
+	cip, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +42,7 @@ func (a *Aes) Encrypt(plaintext []byte) ([]byte, error) {
 }
 
 func (a *Aes) Decrypt(ciphertext []byte) ([]byte, error) {
-	if len(ciphertext)%aes.BlockSize != 0 {
+	if !a.isAligned(ciphertext) {
 		return nil, errors.New("blocksize must be multiple of decoded message length")
 	}
 
@@ -48,10 +52,31 @@ func (a *Aes) Decrypt(ciphertext []byte) ([]byte, error) {
 	cfb := cipher.NewCFBDecrypter(a.cip, iv)
 	cfb.XORKeyStream(msg, msg)
 
-	return msg, nil
+	plaintext, err := a.unpad(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return plaintext, nil
+}
+
+func (a *Aes) isAligned(b []byte) bool {
+	return len(b)%aes.BlockSize == 0
 }
 
 func (a *Aes) pad(src []byte) []byte {
 	n := aes.BlockSize - len(src)%aes.BlockSize
-	return append(src, make([]byte, n)...)
+	fill := []byte{byte(n)}
+	return append(src, bytes.Repeat(fill, n)...)
+}
+
+func (a *Aes) unpad(src []byte) ([]byte, error) {
+	length := len(src)
+	unpadding := int(src[length-1])
+
+	if unpadding > length {
+		return nil, errors.New("unpad error. This could happen when incorrect encryption key is used")
+	}
+
+	return src[:(length - unpadding)], nil
 }
