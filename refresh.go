@@ -16,10 +16,7 @@ type Refresh struct {
 }
 
 func NewRefresh(conf *Conf) (Actor, error) {
-	timer := time.NewTimer(1 * time.Hour)
-	timer.Stop()
-
-	r := Refresh{conf, timer}
+	r := Refresh{timer: time.NewTimer(1 * time.Hour)}
 
 	err := r.UpdateConf(conf)
 	if err != nil {
@@ -28,7 +25,7 @@ func NewRefresh(conf *Conf) (Actor, error) {
 
 	go func() {
 		for {
-			<-timer.C
+			<-r.timer.C
 			runRefresh()
 			r.scheduleNext()
 		}
