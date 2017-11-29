@@ -9,9 +9,10 @@ import (
 const maxPacketSize = 512
 
 type Multicast struct {
-	conf   *Conf
-	listen *net.UDPConn
-	ping   *time.Ticker
+	conf          *Conf
+	listen        *net.UDPConn
+	ping          *time.Ticker
+	pingLocalAddr net.Addr
 }
 
 func NewMulticast(conf *Conf) (Actor, error) {
@@ -106,6 +107,7 @@ func (m *Multicast) updatePing(conf *Conf) (*time.Ticker, error) {
 	if err != nil {
 		return nil, err
 	}
+	m.pingLocalAddr = conn.LocalAddr()
 
 	ticker := time.NewTicker(conf.Multicast.Ping)
 	go func() {
@@ -119,5 +121,11 @@ func (m *Multicast) updatePing(conf *Conf) (*time.Ticker, error) {
 }
 
 func (m *Multicast) handleListen(src *net.UDPAddr, packet []byte) {
-	log.Println("Received from", src, string(packet))
+	if m.pingLocalAddr == nil || m.pingLocalAddr.String() == src.String() {
+		// We sent this. Ignore!
+		return
+	}
+
+	names, _ := net.LookupAddr(src.IP.String())
+	log.Println("Received from", names, src, string(packet))
 }
