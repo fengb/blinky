@@ -17,7 +17,7 @@ type Actor interface {
 	UpdateConf(conf *Conf) error
 }
 
-func watchSignals(conf *Conf, actors ...Actor) {
+func watchSignals(conf *Conf, actors []Actor) {
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGHUP)
 	for _ = range c {
@@ -59,6 +59,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	multicast, err := NewMulticast(conf)
+	if err != nil {
+		panic(err)
+	}
 
-	watchSignals(conf, refresh, http)
+	watchSignals(conf, []Actor{refresh, http, multicast})
 }

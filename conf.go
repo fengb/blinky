@@ -26,6 +26,11 @@ type Conf struct {
 		At      Clock
 	}
 
+	Multicast struct {
+		Addr   string
+		Listen bool
+	}
+
 	Pac *Pac
 
 	dir string
@@ -48,6 +53,11 @@ func NewConf(dir string) (*Conf, error) {
 		return nil, err
 	}
 
+	err = conf.parseMulticast(cfg.Section("multicast"))
+	if err != nil {
+		return nil, err
+	}
+
 	conf.Pac, err = NewPac("/etc/pacman.conf")
 	if err != nil {
 		return nil, err
@@ -63,12 +73,12 @@ func (c *Conf) Close() error {
 func (c *Conf) parseHttp(sec *ini.Section) error {
 	var err error
 	if sec.HasKey("addr") {
-		c.Http.Addr = sec.Key("addr").Value()
-	}
+		c.Http.Addr = sec.Key("addr").String()
 
-	_, _, err = net.SplitHostPort(c.Http.Addr)
-	if err != nil {
-		return err
+		_, _, err = net.SplitHostPort(c.Http.Addr)
+		if err != nil {
+			return err
+		}
 	}
 
 	c.Http.Index, err = template.ParseFiles(c.dir + "/index.html.tmpl")
@@ -92,6 +102,27 @@ func (c *Conf) parseRefresh(sec *ini.Section) error {
 		c.Refresh.At, err = time.Parse(hhmm, "02:30")
 	} else {
 		c.Refresh.At, err = sec.Key("at").TimeFormat(hhmm)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Conf) parseMulticast(sec *ini.Section) error {
+	var err error
+	if sec.HasKey("listen") {
+		c.Multicast.Listen, err = sec.Key("listen").Bool()
+		if err != nil {
+			return err
+		}
+	}
+
+	if sec.HasKey("addr") {
+		c.Multicast.Addr = sec.Key("addr").String()
+
+		_, _, err = net.SplitHostPort(c.Multicast.Addr)
 		if err != nil {
 			return err
 		}
