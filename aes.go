@@ -28,8 +28,8 @@ func NewAes(key []byte) (*Aes, error) {
 }
 
 func (a *Aes) Encrypt(plaintext []byte) ([]byte, error) {
-	plaintext = a.pad(plaintext)
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+	padded := a.pad(plaintext)
+	ciphertext := make([]byte, aes.BlockSize+len(padded))
 	iv := ciphertext[:aes.BlockSize]
 	_, err := rand.Read(iv)
 	if err != nil {
@@ -37,7 +37,7 @@ func (a *Aes) Encrypt(plaintext []byte) ([]byte, error) {
 	}
 
 	cfb := cipher.NewCFBEncrypter(a.cip, iv)
-	cfb.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+	cfb.XORKeyStream(ciphertext[aes.BlockSize:], padded)
 	return ciphertext, nil
 }
 
@@ -47,12 +47,12 @@ func (a *Aes) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 
 	iv := ciphertext[:aes.BlockSize]
-	msg := ciphertext[aes.BlockSize:]
 
+	padded := make([]byte, len(ciphertext)-aes.BlockSize)
 	cfb := cipher.NewCFBDecrypter(a.cip, iv)
-	cfb.XORKeyStream(msg, msg)
+	cfb.XORKeyStream(padded, ciphertext[aes.BlockSize:])
 
-	plaintext, err := a.unpad(msg)
+	plaintext, err := a.unpad(padded)
 	if err != nil {
 		return nil, err
 	}

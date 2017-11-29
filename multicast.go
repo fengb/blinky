@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"log"
 	"net"
 	"time"
@@ -8,16 +9,23 @@ import (
 
 const maxPacketSize = 512
 
+type receiveCacheData struct {
+	packet    []byte
+	decrypted string
+}
+
 type Multicast struct {
 	conf          *Conf
 	aes           *Aes
+	sendCache     []byte
+	receiveCache  map[string]receiveCacheData
 	listen        *net.UDPConn
 	ping          *time.Ticker
 	pingLocalAddr net.Addr
 }
 
 func NewMulticast(conf *Conf) (Actor, error) {
-	m := Multicast{conf: &Conf{}}
+	m := Multicast{conf: &Conf{}, receiveCache: make(map[string]receiveCacheData)}
 	err := m.UpdateConf(conf)
 	if err != nil {
 		return nil, err
@@ -120,11 +128,15 @@ func (m *Multicast) updatePing(conf *Conf) (*time.Ticker, error) {
 	go func() {
 		defer conn.Close()
 		for _ = range ticker.C {
-			msg, err := m.aes.Encrypt([]byte("Send Packet"))
-			if err != nil {
-				log.Println(err)
+			if m.sendCache == nil {
+				encrypted, err := m.aes.Encrypt([]byte("Send Packet"))
+				if err != nil {
+					log.Println(err)
+				}
+				m.sendCache = encrypted
 			}
-			conn.Write(msg)
+
+			conn.Write(m.sendCache)
 		}
 	}()
 
@@ -132,15 +144,26 @@ func (m *Multicast) updatePing(conf *Conf) (*time.Ticker, error) {
 }
 
 func (m *Multicast) handleListen(src *net.UDPAddr, packet []byte) {
-	if m.pingLocalAddr == nil || m.pingLocalAddr.String() == src.String() {
+	if m.pingLocalAddr != nil && m.pingLocalAddr.String() == src.String() {
 		// We sent this. Ignore!
 		return
 	}
 
-	names, _ := net.LookupAddr(src.IP.String())
+	ipString := src.IP.String()
+	cache, ok := m.receiveCache[ipString]
+	if ok && bytes.Equal(packet, cache.packet) {
+		// Already cached!
+		return
+	}
+
 	msg, err := m.aes.Decrypt(packet)
 	if err != nil {
-		log.Println(err)
+		// Bad packet. Probably fake packet and not a bug.
+		return
 	}
-	log.Println("Received from", names, src, string(msg))
+
+	m.receiveCache[ipString] = receiveCacheData{packet, string(msg)}
+
+	names, _ := net.LookupAddr(ipString)
+	log.Println("Update received from", names, src, string(msg))
 }
