@@ -17,4 +17,6 @@ jobs:
 workflows:
   version: 2
   build:
-    jobs: [build_x64, build_armv7]
+    jobs:
+      - build_x64
+      #- build_armv7
