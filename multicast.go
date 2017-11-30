@@ -22,6 +22,7 @@ type receiveCacheData struct {
 
 type Multicast struct {
 	conf         *Conf
+	pac          *Pac
 	aes          *Aes
 	sendCache    []byte
 	receiveCache map[string]receiveCacheData
@@ -30,9 +31,10 @@ type Multicast struct {
 	sendTimer    *time.Timer
 }
 
-func NewMulticast(conf *Conf) (Actor, error) {
+func NewMulticast(conf *Conf, pac *Pac) (Actor, error) {
 	m := Multicast{
 		conf:         &Conf{},
+		pac:          pac,
 		receiveCache: make(map[string]receiveCacheData),
 		sendTimer:    time.NewTimer(sendInterval),
 	}
@@ -49,7 +51,7 @@ func NewMulticast(conf *Conf) (Actor, error) {
 			}
 
 			if m.sendCache == nil {
-				snapshot, err := m.conf.Pac.GetSnapshot()
+				snapshot, err := m.pac.GetSnapshot()
 				if err != nil {
 					log.Println(err)
 				}

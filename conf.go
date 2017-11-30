@@ -33,8 +33,6 @@ type Conf struct {
 		Secret []byte
 	}
 
-	Pac *Pac
-
 	dir string
 }
 
@@ -60,16 +58,7 @@ func NewConf(dir string) (*Conf, error) {
 		return nil, err
 	}
 
-	conf.Pac, err = NewPac("/etc/pacman.conf")
-	if err != nil {
-		return nil, err
-	}
-
 	return &conf, err
-}
-
-func (c *Conf) Close() error {
-	return c.Pac.Close()
 }
 
 func (c *Conf) parseHttp(sec *ini.Section) error {

@@ -61,7 +61,7 @@ func NewPac(filename string) (*Pac, error) {
 
 	err = pac.watcher.Add(pac.dbpath)
 	if err != nil {
-		pac.Close()
+		pac.watcher.Close()
 		return nil, err
 	}
 
@@ -71,15 +71,8 @@ func NewPac(filename string) (*Pac, error) {
 	return &pac, nil
 }
 
-func (p *Pac) Close() error {
-	if p.watcher != nil {
-		err := p.watcher.Close()
-		if err != nil {
-			return err
-		}
-		p.watcher = nil
-	}
-
+func (p *Pac) UpdateConf(conf *Conf) error {
+	// TODO: reload pacman.conf / watcher
 	return nil
 }
 

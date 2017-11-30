@@ -29,7 +29,6 @@ func watchSignals(conf *Conf, actors []Actor) {
 			continue
 		}
 
-		conf.Close()
 		conf = newConf
 
 		for _, actor := range actors {
@@ -51,18 +50,23 @@ func main() {
 		panic(err)
 	}
 
+	// TODO: move this into conf
+	pac, err := NewPac("/etc/pacman.conf")
+	if err != nil {
+		panic(err)
+	}
 	refresh, err := NewRefresh(conf)
 	if err != nil {
 		panic(err)
 	}
-	http, err := NewHttp(conf)
+	http, err := NewHttp(conf, pac)
 	if err != nil {
 		panic(err)
 	}
-	multicast, err := NewMulticast(conf)
+	multicast, err := NewMulticast(conf, pac)
 	if err != nil {
 		panic(err)
 	}
 
-	watchSignals(conf, []Actor{refresh, http, multicast})
+	watchSignals(conf, []Actor{pac, refresh, http, multicast})
 }

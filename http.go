@@ -8,11 +8,12 @@ import (
 
 type Http struct {
 	conf *Conf
+	pac  *Pac
 	srv  *http.Server
 }
 
-func NewHttp(conf *Conf) (Actor, error) {
-	h := &Http{conf: conf}
+func NewHttp(conf *Conf, pac *Pac) (Actor, error) {
+	h := &Http{conf: conf, pac: pac}
 
 	http.HandleFunc("/", h.Index)
 
@@ -30,7 +31,7 @@ func (h *Http) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapshot, err := h.conf.Pac.GetSnapshot()
+	snapshot, err := h.pac.GetSnapshot()
 	if err != nil {
 		// 500
 		return
