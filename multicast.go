@@ -2,16 +2,17 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"log"
 	"net"
 	"time"
 )
 
-const maxPacketSize = 512
+const maxPacketSize = 8192
 
 type receiveCacheData struct {
-	packet    []byte
-	decrypted string
+	packet   []byte
+	snapshot *Snapshot
 }
 
 type Multicast struct {
@@ -129,11 +130,15 @@ func (m *Multicast) updatePing(conf *Conf) (*time.Ticker, error) {
 		defer conn.Close()
 		for _ = range ticker.C {
 			if m.sendCache == nil {
-				encrypted, err := m.aes.Encrypt([]byte("Send Packet"))
+				snapshot, err := m.conf.Pac.GetSnapshot()
 				if err != nil {
 					log.Println(err)
 				}
-				m.sendCache = encrypted
+				packet, err := m.encode(snapshot)
+				if err != nil {
+					log.Println(err)
+				}
+				m.sendCache = packet
 			}
 
 			conn.Write(m.sendCache)
@@ -156,14 +161,45 @@ func (m *Multicast) handleListen(src *net.UDPAddr, packet []byte) {
 		return
 	}
 
-	msg, err := m.aes.Decrypt(packet)
+	snapshot, err := m.decode(packet)
 	if err != nil {
-		// Bad packet. Probably fake packet and not a bug.
+		log.Println(err)
 		return
 	}
 
-	m.receiveCache[ipString] = receiveCacheData{packet, string(msg)}
+	m.receiveCache[ipString] = receiveCacheData{packet, snapshot}
 
 	names, _ := net.LookupAddr(ipString)
-	log.Println("Update received from", names, src, string(msg))
+	log.Println("Update received from", names, src, snapshot)
+}
+
+func (m *Multicast) decode(ciphertext []byte) (*Snapshot, error) {
+	plaintext, err := m.aes.Decrypt(ciphertext)
+	if err != nil {
+		// Wrong secret. Might be a bug?
+		return nil, err
+	}
+
+	snapshot := Snapshot{}
+	err = json.Unmarshal(plaintext, &snapshot)
+	if err != nil {
+		// Wrong data structure. Probably a bug
+		return nil, err
+	}
+
+	return &snapshot, nil
+}
+
+func (m *Multicast) encode(snapshot *Snapshot) ([]byte, error) {
+	plaintext, err := json.Marshal(snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	ciphertext, err := m.aes.Encrypt(plaintext)
+	if err != nil {
+		return nil, err
+	}
+
+	return ciphertext, nil
 }
