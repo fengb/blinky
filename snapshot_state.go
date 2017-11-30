@@ -21,7 +21,7 @@ type Snapshot struct {
 
 type NetworkLink struct {
 	Ip          net.IP
-	Hostname    string
+	Hostnames   []string
 	LastContact time.Time
 	Snapshot    *Snapshot
 	raw         []byte
@@ -107,10 +107,7 @@ func (s *SnapshotState) UpdateNetworkLink(
 	}
 
 	cache = NetworkLink{raw: raw, Ip: addr.IP, LastContact: time.Now(), Snapshot: snapshot}
-	names, _ := net.LookupAddr(ipString)
-	if len(names) > 0 {
-		cache.Hostname = names[0]
-	}
+	cache.Hostnames, _ = net.LookupAddr(ipString)
 
 	s.networkLookup[ipString] = cache
 	log.Println("Update received from", ipString)
