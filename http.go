@@ -31,13 +31,7 @@ func (h *Http) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapshot, err := h.pac.GetSnapshot()
-	if err != nil {
-		// 500
-		return
-	}
-
-	err = h.conf.Http.Index.Execute(w, snapshot)
+	err := h.conf.Http.Index.Execute(w, h.pac.Snapshot)
 	if err != nil {
 		// ???
 	}

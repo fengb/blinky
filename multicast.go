@@ -51,11 +51,7 @@ func NewMulticast(conf *Conf, pac *Pac) (Actor, error) {
 			}
 
 			if m.sendCache == nil {
-				snapshot, err := m.pac.GetSnapshot()
-				if err != nil {
-					log.Println(err)
-				}
-				packet, err := m.encode(snapshot)
+				packet, err := m.encode(m.pac.Snapshot)
 				if err != nil {
 					log.Println(err)
 				}
