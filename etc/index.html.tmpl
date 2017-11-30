@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 
 <h1>blinky</h1>
-<p><strong>Synced:</strong> {{ .Snapshot.LastSync.Format "Jan-2 15:04" }} &mdash; {{ .Snapshot.Status }}</p>
+<p><strong>Synced:</strong> {{ .Local.LastSync.Format "Jan-2 15:04" }} &mdash; {{ .Local.Status }}</p>
 <table>
   <tr>
     <th>Name</th>
     <th>Version</th>
     <th>Upgrade</th>
   </tr>
-  {{- range .Snapshot.Packages }}
+  {{- range .Local.Packages }}
     <tr>
       <td>{{ .Name }}</td>
       <td>{{ .Version }}</td>

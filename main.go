@@ -50,8 +50,10 @@ func main() {
 		panic(err)
 	}
 
+	snapshotState := NewSnapshotState()
+
 	// TODO: move this into conf
-	pac, err := NewPac("/etc/pacman.conf")
+	pac, err := NewPac("/etc/pacman.conf", snapshotState)
 	if err != nil {
 		panic(err)
 	}
@@ -59,11 +61,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	multicast, err := NewMulticast(conf, pac)
+	multicast, err := NewMulticast(conf, snapshotState)
 	if err != nil {
 		panic(err)
 	}
-	http, err := NewHttp(conf, pac, multicast)
+	http, err := NewHttp(conf, snapshotState)
 	if err != nil {
 		panic(err)
 	}

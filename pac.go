@@ -11,15 +11,14 @@ import (
 )
 
 type Pac struct {
-	Snapshot *Snapshot
-	conf     alpm.PacmanConfig
-	dbpath   string
-	logfile  string
-	watcher  *fsnotify.Watcher
-	subs     []chan *Snapshot
+	snapshotState *SnapshotState
+	conf          alpm.PacmanConfig
+	dbpath        string
+	logfile       string
+	watcher       *fsnotify.Watcher
 }
 
-func NewPac(filename string) (*Pac, error) {
+func NewPac(filename string, snapshotState *SnapshotState) (*Pac, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -31,7 +30,7 @@ func NewPac(filename string) (*Pac, error) {
 		return nil, err
 	}
 
-	pac := Pac{conf: conf}
+	pac := Pac{snapshotState: snapshotState, conf: conf}
 
 	pac.dbpath = conf.DBPath
 	if pac.dbpath == "" {
@@ -44,7 +43,7 @@ func NewPac(filename string) (*Pac, error) {
 	}
 
 	err = pac.updateSnapshot()
-	if pac.Snapshot == nil {
+	if pac.snapshotState.Local() == nil {
 		panic("wtf")
 	}
 	if err != nil {
@@ -73,12 +72,6 @@ func (p *Pac) UpdateConf(conf *Conf) error {
 	return nil
 }
 
-func (p *Pac) SubSnapshot() <-chan *Snapshot {
-	sub := make(chan *Snapshot)
-	p.subs = append(p.subs, sub)
-	return sub
-}
-
 func (p *Pac) updateSnapshot() error {
 	snapshot := Snapshot{}
 
@@ -91,7 +84,6 @@ func (p *Pac) updateSnapshot() error {
 		func() error {
 			var err error
 			snapshot.Packages, err = p.fetchPackages()
-			snapshot.Status = snapshot.PackageStatus()
 			return err
 		},
 	)
@@ -100,19 +92,7 @@ func (p *Pac) updateSnapshot() error {
 		return err
 	}
 
-	if p.Snapshot != nil {
-		p.Snapshot.Status = p.Snapshot.PackageStatus()
-	}
-
-	if !snapshot.Equal(p.Snapshot) {
-		log.Println("Pacman snapshot changed")
-
-		p.Snapshot = &snapshot
-		for _, sub := range p.subs {
-			sub <- &snapshot
-		}
-	}
-
+	p.snapshotState.UpdateLocal(&snapshot)
 	return nil
 }
 
@@ -184,7 +164,7 @@ func (p *Pac) watchChanges() {
 	for event := range p.watcher.Events {
 		if strings.HasSuffix(event.Name, "db.lck") {
 			if event.Op&fsnotify.Create == fsnotify.Create {
-				p.Snapshot.Status = "updating"
+				//p.snapshotState.Local().Status = "updating"
 				debouncedUpdate.Cancel()
 			} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 				debouncedUpdate.Call()
