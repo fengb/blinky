@@ -28,7 +28,7 @@ type Conf struct {
 
 	Multicast struct {
 		Listen bool
-		Ping   time.Duration
+		Send   bool
 		Addr   string
 		Secret []byte
 	}
@@ -121,8 +121,8 @@ func (c *Conf) parseMulticast(sec *ini.Section) error {
 		}
 	}
 
-	if sec.HasKey("ping") {
-		c.Multicast.Ping, err = sec.Key("ping").Duration()
+	if sec.HasKey("send") {
+		c.Multicast.Send, err = sec.Key("send").Bool()
 		if err != nil {
 			return err
 		}

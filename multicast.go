@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-const maxPacketSize = 8192
+const (
+	maxPacketSize = 8192
+	sendInterval  = 1 * time.Second
+)
 
 type receiveCacheData struct {
 	packet   []byte
@@ -23,8 +26,8 @@ type Multicast struct {
 	sendCache     []byte
 	receiveCache  map[string]receiveCacheData
 	listen        *net.UDPConn
-	ping          *time.Ticker
-	pingLocalAddr net.Addr
+	send          *time.Ticker
+	sendLocalAddr net.Addr
 }
 
 func NewMulticast(conf *Conf) (Actor, error) {
@@ -50,12 +53,12 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 		}
 	}
 
-	ping, err := m.updatePing(conf)
+	send, err := m.updateSend(conf)
 	if err != nil {
 		return err
 	}
-	if m.ping != ping && m.ping != nil {
-		m.ping.Stop()
+	if m.send != send && m.send != nil {
+		m.send.Stop()
 	}
 
 	aes, err := NewAes(conf.Multicast.Secret)
@@ -65,7 +68,7 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 
 	m.aes = aes
 	m.listen = listen
-	m.ping = ping
+	m.send = send
 	m.conf = conf
 
 	return nil
@@ -107,14 +110,13 @@ func (m *Multicast) updateListen(conf *Conf) (*net.UDPConn, error) {
 	return conn, nil
 }
 
-func (m *Multicast) updatePing(conf *Conf) (*time.Ticker, error) {
-	if conf.Multicast.Ping == 0 {
+func (m *Multicast) updateSend(conf *Conf) (*time.Ticker, error) {
+	if !conf.Multicast.Send {
 		return nil, nil
 	}
 
-	if conf.Multicast.Ping == m.conf.Multicast.Ping &&
-		conf.Multicast.Addr == m.conf.Multicast.Addr {
-		return m.ping, nil
+	if conf.Multicast.Addr == m.conf.Multicast.Addr {
+		return m.send, nil
 	}
 
 	addr, err := net.ResolveUDPAddr("udp", conf.Multicast.Addr)
@@ -125,9 +127,9 @@ func (m *Multicast) updatePing(conf *Conf) (*time.Ticker, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.pingLocalAddr = conn.LocalAddr()
+	m.sendLocalAddr = conn.LocalAddr()
 
-	ticker := time.NewTicker(conf.Multicast.Ping)
+	ticker := time.NewTicker(sendInterval)
 	go func() {
 		defer conn.Close()
 		for _ = range ticker.C {
@@ -151,7 +153,7 @@ func (m *Multicast) updatePing(conf *Conf) (*time.Ticker, error) {
 }
 
 func (m *Multicast) handleListen(src *net.UDPAddr, packet []byte) {
-	if m.pingLocalAddr != nil && m.pingLocalAddr.String() == src.String() {
+	if m.sendLocalAddr != nil && m.sendLocalAddr.String() == src.String() {
 		// We sent this. Ignore!
 		return
 	}
