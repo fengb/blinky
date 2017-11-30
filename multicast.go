@@ -21,21 +21,49 @@ type receiveCacheData struct {
 }
 
 type Multicast struct {
-	conf          *Conf
-	aes           *Aes
-	sendCache     []byte
-	receiveCache  map[string]receiveCacheData
-	listen        *net.UDPConn
-	send          *time.Ticker
-	sendLocalAddr net.Addr
+	conf         *Conf
+	aes          *Aes
+	sendCache    []byte
+	receiveCache map[string]receiveCacheData
+	listen       *net.UDPConn
+	send         *net.UDPConn
+	sendTimer    *time.Timer
 }
 
 func NewMulticast(conf *Conf) (Actor, error) {
-	m := Multicast{conf: &Conf{}, receiveCache: make(map[string]receiveCacheData)}
+	m := Multicast{
+		conf:         &Conf{},
+		receiveCache: make(map[string]receiveCacheData),
+		sendTimer:    time.NewTimer(sendInterval),
+	}
 	err := m.UpdateConf(conf)
 	if err != nil {
 		return nil, err
 	}
+
+	go func() {
+		for _ = range m.sendTimer.C {
+			if m.send == nil {
+				// Bad state
+				log.Fatal("sendConn is nil... why")
+			}
+
+			if m.sendCache == nil {
+				snapshot, err := m.conf.Pac.GetSnapshot()
+				if err != nil {
+					log.Println(err)
+				}
+				packet, err := m.encode(snapshot)
+				if err != nil {
+					log.Println(err)
+				}
+				m.sendCache = packet
+			}
+
+			m.send.Write(m.sendCache)
+			m.sendTimer.Reset(sendInterval)
+		}
+	}()
 
 	return &m, nil
 }
@@ -57,8 +85,14 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	if err != nil {
 		return err
 	}
+	if send == nil {
+		m.sendTimer.Stop()
+	}
 	if m.send != send && m.send != nil {
-		m.send.Stop()
+		err = m.send.Close()
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 	aes, err := NewAes(conf.Multicast.Secret)
@@ -110,12 +144,13 @@ func (m *Multicast) updateListen(conf *Conf) (*net.UDPConn, error) {
 	return conn, nil
 }
 
-func (m *Multicast) updateSend(conf *Conf) (*time.Ticker, error) {
+func (m *Multicast) updateSend(conf *Conf) (*net.UDPConn, error) {
 	if !conf.Multicast.Send {
 		return nil, nil
 	}
 
-	if conf.Multicast.Addr == m.conf.Multicast.Addr {
+	if conf.Multicast.Send == m.conf.Multicast.Send &&
+		conf.Multicast.Addr == m.conf.Multicast.Addr {
 		return m.send, nil
 	}
 
@@ -127,33 +162,12 @@ func (m *Multicast) updateSend(conf *Conf) (*time.Ticker, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.sendLocalAddr = conn.LocalAddr()
 
-	ticker := time.NewTicker(sendInterval)
-	go func() {
-		defer conn.Close()
-		for _ = range ticker.C {
-			if m.sendCache == nil {
-				snapshot, err := m.conf.Pac.GetSnapshot()
-				if err != nil {
-					log.Println(err)
-				}
-				packet, err := m.encode(snapshot)
-				if err != nil {
-					log.Println(err)
-				}
-				m.sendCache = packet
-			}
-
-			conn.Write(m.sendCache)
-		}
-	}()
-
-	return ticker, nil
+	return conn, nil
 }
 
 func (m *Multicast) handleListen(src *net.UDPAddr, packet []byte) {
-	if m.sendLocalAddr != nil && m.sendLocalAddr.String() == src.String() {
+	if m.send != nil && m.send.LocalAddr().String() == src.String() {
 		// We sent this. Ignore!
 		return
 	}
