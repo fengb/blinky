@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net"
 	"time"
@@ -173,10 +175,22 @@ func (m *Multicast) handleListen(src *net.UDPAddr, packet []byte) {
 	log.Println("Update received from", names, src, snapshot)
 }
 
-func (m *Multicast) decode(ciphertext []byte) (*Snapshot, error) {
-	plaintext, err := m.aes.Decrypt(ciphertext)
+func (m *Multicast) decode(encrypted []byte) (*Snapshot, error) {
+	compressed, err := m.aes.Decrypt(encrypted)
 	if err != nil {
 		// Wrong secret. Might be a bug?
+		return nil, err
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		// Bad compression. Not a bug?
+		return nil, err
+	}
+	defer gz.Close()
+	plaintext, err := ioutil.ReadAll(gz)
+	if err != nil {
+		// Bad compression. Not a bug?
 		return nil, err
 	}
 
@@ -196,7 +210,15 @@ func (m *Multicast) encode(snapshot *Snapshot) ([]byte, error) {
 		return nil, err
 	}
 
-	ciphertext, err := m.aes.Encrypt(plaintext)
+	compressed := bytes.Buffer{}
+	gz := gzip.NewWriter(&compressed)
+	_, err = gz.Write(plaintext)
+	gz.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	ciphertext, err := m.aes.Encrypt(compressed.Bytes())
 	if err != nil {
 		return nil, err
 	}
