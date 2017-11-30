@@ -22,7 +22,6 @@ type receiveCacheData struct {
 
 type Multicast struct {
 	conf         *Conf
-	pac          *Pac
 	aes          *Aes
 	sendCache    []byte
 	receiveCache map[string]receiveCacheData
@@ -34,28 +33,34 @@ type Multicast struct {
 func NewMulticast(conf *Conf, pac *Pac) (Actor, error) {
 	m := Multicast{
 		conf:         &Conf{},
-		pac:          pac,
 		receiveCache: make(map[string]receiveCacheData),
 		sendTimer:    time.NewTimer(sendInterval),
 	}
+
 	err := m.UpdateConf(conf)
 	if err != nil {
 		return nil, err
 	}
+
+	m.sendCache, err = m.encode(pac.Snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for snapshot := range pac.SubSnapshot() {
+			m.sendCache, err = m.encode(snapshot)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+	}()
 
 	go func() {
 		for _ = range m.sendTimer.C {
 			if m.send == nil {
 				// Bad state
 				log.Fatal("sendConn is nil... why")
-			}
-
-			if m.sendCache == nil {
-				packet, err := m.encode(m.pac.Snapshot)
-				if err != nil {
-					log.Println(err)
-				}
-				m.sendCache = packet
 			}
 
 			m.send.Write(m.sendCache)

@@ -28,6 +28,7 @@ type Pac struct {
 	dbpath   string
 	logfile  string
 	watcher  *fsnotify.Watcher
+	subs     []chan *Snapshot
 }
 
 func NewPac(filename string) (*Pac, error) {
@@ -55,6 +56,9 @@ func NewPac(filename string) (*Pac, error) {
 	}
 
 	err = pac.updateSnapshot()
+	if pac.Snapshot == nil {
+		panic("wtf")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +83,12 @@ func NewPac(filename string) (*Pac, error) {
 func (p *Pac) UpdateConf(conf *Conf) error {
 	// TODO: reload pacman.conf / watcher
 	return nil
+}
+
+func (p *Pac) SubSnapshot() <-chan *Snapshot {
+	sub := make(chan *Snapshot)
+	p.subs = append(p.subs, sub)
+	return sub
 }
 
 func (p *Pac) updateSnapshot() error {
@@ -109,6 +119,9 @@ func (p *Pac) updateSnapshot() error {
 	}
 
 	p.Snapshot = &snapshot
+	for _, sub := range p.subs {
+		sub <- &snapshot
+	}
 	return nil
 }
 
