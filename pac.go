@@ -10,18 +10,6 @@ import (
 	"time"
 )
 
-type Package struct {
-	Name    string
-	Version string
-	Upgrade string
-}
-
-type Snapshot struct {
-	Status   string
-	LastSync time.Time
-	Packages []Package
-}
-
 type Pac struct {
 	Snapshot *Snapshot
 	conf     alpm.PacmanConfig
@@ -103,13 +91,7 @@ func (p *Pac) updateSnapshot() error {
 		func() error {
 			var err error
 			snapshot.Packages, err = p.fetchPackages()
-			snapshot.Status = "current"
-			for _, pkg := range snapshot.Packages {
-				if pkg.Upgrade != "" {
-					snapshot.Status = "outdated"
-					break
-				}
-			}
+			snapshot.Status = snapshot.PackageStatus()
 			return err
 		},
 	)
@@ -118,10 +100,19 @@ func (p *Pac) updateSnapshot() error {
 		return err
 	}
 
-	p.Snapshot = &snapshot
-	for _, sub := range p.subs {
-		sub <- &snapshot
+	if p.Snapshot != nil {
+		p.Snapshot.Status = p.Snapshot.PackageStatus()
 	}
+
+	if !snapshot.Equal(p.Snapshot) {
+		log.Println("Pacman snapshot changed")
+
+		p.Snapshot = &snapshot
+		for _, sub := range p.subs {
+			sub <- &snapshot
+		}
+	}
+
 	return nil
 }
 
@@ -183,8 +174,6 @@ func (p *Pac) fetchPackages() ([]Package, error) {
 
 func (p *Pac) watchChanges() {
 	debouncedUpdate := NewDebounced(1000, func() {
-		log.Println("Pacman snapshot changed")
-
 		err := p.updateSnapshot()
 		if err != nil {
 			// How to handle?
