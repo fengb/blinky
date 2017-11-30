@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"sort"
 	"time"
 )
 
@@ -15,25 +16,28 @@ const (
 	sendInterval  = 1 * time.Second
 )
 
-type receiveCacheData struct {
-	packet   []byte
-	snapshot *Snapshot
+type ReceiveData struct {
+	Ip          net.IP
+	Hostname    string
+	Packet      []byte
+	LastContact time.Time
+	Snapshot    *Snapshot
 }
 
 type Multicast struct {
 	conf         *Conf
 	aes          *Aes
 	sendCache    []byte
-	receiveCache map[string]receiveCacheData
+	receiveCache map[string]ReceiveData
 	listen       *net.UDPConn
 	send         *net.UDPConn
 	sendTimer    *time.Timer
 }
 
-func NewMulticast(conf *Conf, pac *Pac) (Actor, error) {
+func NewMulticast(conf *Conf, pac *Pac) (*Multicast, error) {
 	m := Multicast{
 		conf:         &Conf{},
-		receiveCache: make(map[string]receiveCacheData),
+		receiveCache: make(map[string]ReceiveData),
 		sendTimer:    time.NewTimer(sendInterval),
 	}
 
@@ -111,6 +115,20 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	return nil
 }
 
+func (m *Multicast) GetReceiveData() []ReceiveData {
+	keys := []string{}
+	for key := range m.receiveCache {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	data := make([]ReceiveData, len(keys))
+	for i, key := range keys {
+		data[i] = m.receiveCache[key]
+	}
+	return data
+}
+
 func (m *Multicast) updateListen(conf *Conf) (*net.UDPConn, error) {
 	if !conf.Multicast.Listen {
 		return nil, nil
@@ -177,8 +195,8 @@ func (m *Multicast) handleListen(src *net.UDPAddr, packet []byte) {
 
 	ipString := src.IP.String()
 	cache, ok := m.receiveCache[ipString]
-	if ok && bytes.Equal(packet, cache.packet) {
-		// Already cached!
+	if ok && bytes.Equal(packet, cache.Packet) {
+		cache.LastContact = time.Now()
 		return
 	}
 
@@ -188,10 +206,15 @@ func (m *Multicast) handleListen(src *net.UDPAddr, packet []byte) {
 		return
 	}
 
-	m.receiveCache[ipString] = receiveCacheData{packet, snapshot}
-
+	cache = ReceiveData{Ip: src.IP, Packet: packet, LastContact: time.Now(), Snapshot: snapshot}
 	names, _ := net.LookupAddr(ipString)
-	log.Println("Update received from", names, src, snapshot)
+	if len(names) > 0 {
+		cache.Hostname = names[0]
+	}
+
+	m.receiveCache[ipString] = cache
+
+	log.Println("Update received from", ipString)
 }
 
 func (m *Multicast) decode(encrypted []byte) (*Snapshot, error) {

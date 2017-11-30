@@ -59,11 +59,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	http, err := NewHttp(conf, pac)
+	multicast, err := NewMulticast(conf, pac)
 	if err != nil {
 		panic(err)
 	}
-	multicast, err := NewMulticast(conf, pac)
+	http, err := NewHttp(conf, pac, multicast)
 	if err != nil {
 		panic(err)
 	}
