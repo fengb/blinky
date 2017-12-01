@@ -17,19 +17,17 @@ type Actor interface {
 	UpdateConf(conf *Conf) error
 }
 
-func watchSignals(conf *Conf, actors []Actor) {
+func watchSignals(actors ...Actor) {
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGHUP)
 	for _ = range c {
 		log.Printf("HUP received - reloading")
 
-		newConf, err := NewConf(ConfDir)
+		conf, err := NewConf(ConfDir)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
-
-		conf = newConf
 
 		for _, actor := range actors {
 			err = actor.UpdateConf(conf)
@@ -45,30 +43,36 @@ func main() {
 		ConfDir = "etc"
 	}
 
+	snapshotState := NewSnapshotState()
+
 	conf, err := NewConf(ConfDir)
 	if err != nil {
 		panic(err)
 	}
 
-	snapshotState := NewSnapshotState()
+	var pac, refresh, multicast, http Actor
+	err = Parallel(
+		func() (err error) {
+			pac, err = NewPac("/etc/pacman.conf", snapshotState)
+			return err
+		},
+		func() (err error) {
+			refresh, err = NewRefresh(conf)
+			return err
+		},
+		func() (err error) {
+			multicast, err = NewMulticast(conf, snapshotState)
+			return err
+		},
+		func() (err error) {
+			http, err = NewHttp(conf, snapshotState)
+			return err
+		},
+	)
 
-	// TODO: move this into conf
-	pac, err := NewPac("/etc/pacman.conf", snapshotState)
-	if err != nil {
-		panic(err)
-	}
-	refresh, err := NewRefresh(conf)
-	if err != nil {
-		panic(err)
-	}
-	multicast, err := NewMulticast(conf, snapshotState)
-	if err != nil {
-		panic(err)
-	}
-	http, err := NewHttp(conf, snapshotState)
 	if err != nil {
 		panic(err)
 	}
 
-	watchSignals(conf, []Actor{pac, refresh, http, multicast})
+	watchSignals(pac, refresh, http, multicast)
 }

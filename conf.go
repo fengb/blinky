@@ -43,17 +43,11 @@ func NewConf(dir string) (*Conf, error) {
 		return nil, err
 	}
 
-	err = conf.parseHttp(cfg.Section("http"))
-	if err != nil {
-		return nil, err
-	}
-
-	err = conf.parseRefresh(cfg.Section("refresh"))
-	if err != nil {
-		return nil, err
-	}
-
-	err = conf.parseMulticast(cfg.Section("multicast"))
+	err = Parallel(
+		func() error { return conf.parseHttp(cfg.Section("http")) },
+		func() error { return conf.parseRefresh(cfg.Section("refresh")) },
+		func() error { return conf.parseMulticast(cfg.Section("multicast")) },
+	)
 	if err != nil {
 		return nil, err
 	}

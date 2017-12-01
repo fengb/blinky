@@ -93,6 +93,10 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 		return err
 	}
 
+	if send == nil {
+		m.sendTimer.Stop()
+	}
+
 	if m.listen != listen {
 		cleanupConn(m.listen)
 		m.listen = listen
@@ -100,10 +104,6 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	if m.send != send {
 		cleanupConn(m.send)
 		m.send = send
-	}
-
-	if send == nil {
-		m.sendTimer.Stop()
 	}
 
 	m.aes = aes
