@@ -1,6 +1,8 @@
 package main
 
-func Parallel(fns ...func() error) error {
+import "github.com/hashicorp/go-multierror"
+
+func Parallel(fns ...func() error) (result error) {
 	cerrs := make(chan error, len(fns))
 
 	for _, fn := range fns {
@@ -12,9 +14,9 @@ func Parallel(fns ...func() error) error {
 	for _, _ = range fns {
 		err := <-cerrs
 		if err != nil {
-			return err
+			result = multierror.Append(result, err)
 		}
 	}
 
-	return nil
+	return result
 }
