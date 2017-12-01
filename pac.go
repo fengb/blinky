@@ -76,13 +76,11 @@ func (p *Pac) updateSnapshot() error {
 	snapshot := Snapshot{}
 
 	err := Parallel(
-		func() error {
-			var err error
+		func() (err error) {
 			snapshot.LastSync, err = p.fetchLastSync()
 			return err
 		},
-		func() error {
-			var err error
+		func() (err error) {
 			snapshot.Packages, err = p.fetchPackages()
 			return err
 		},

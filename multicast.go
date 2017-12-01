@@ -74,18 +74,15 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	)
 
 	err := Parallel(
-		func() error {
-			var err error
+		func() (err error) {
 			aes, err = NewAes(conf.Multicast.Secret)
 			return err
 		},
-		func() error {
-			var err error
+		func() (err error) {
 			listen, err = m.updateListen(conf)
 			return err
 		},
-		func() error {
-			var err error
+		func() (err error) {
 			send, err = m.updateSend(conf)
 			return err
 		},

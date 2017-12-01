@@ -61,8 +61,7 @@ func NewConf(dir string) (*Conf, error) {
 	return &conf, err
 }
 
-func (c *Conf) parseHttp(sec *ini.Section) error {
-	var err error
+func (c *Conf) parseHttp(sec *ini.Section) (err error) {
 	if sec.HasKey("addr") {
 		c.Http.Addr = sec.Key("addr").String()
 
@@ -80,8 +79,7 @@ func (c *Conf) parseHttp(sec *ini.Section) error {
 	return nil
 }
 
-func (c *Conf) parseRefresh(sec *ini.Section) error {
-	var err error
+func (c *Conf) parseRefresh(sec *ini.Section) (err error) {
 	if sec.HasKey("enabled") {
 		c.Refresh.Enabled, err = sec.Key("enabled").Bool()
 		if err != nil {
@@ -101,8 +99,7 @@ func (c *Conf) parseRefresh(sec *ini.Section) error {
 	return nil
 }
 
-func (c *Conf) parseMulticast(sec *ini.Section) error {
-	var err error
+func (c *Conf) parseMulticast(sec *ini.Section) (err error) {
 	if sec.HasKey("listen") {
 		c.Multicast.Listen, err = sec.Key("listen").Bool()
 		if err != nil {
