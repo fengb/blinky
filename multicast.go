@@ -67,43 +67,65 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 }
 
 func (m *Multicast) UpdateConf(conf *Conf) error {
-	listen, err := m.updateListen(conf)
+	var (
+		aes    *Aes
+		listen *net.UDPConn
+		send   *net.UDPConn
+	)
+
+	err := Parallel(
+		func() error {
+			var err error
+			aes, err = NewAes(conf.Multicast.Secret)
+			return err
+		},
+		func() error {
+			var err error
+			listen, err = m.updateListen(conf)
+			return err
+		},
+		func() error {
+			var err error
+			send, err = m.updateSend(conf)
+			return err
+		},
+	)
+
 	if err != nil {
+		cleanupConn(listen, send)
 		return err
 	}
 
-	if m.listen != listen && m.listen != nil {
-		err = m.listen.Close()
-		if err != nil {
-			log.Println(err)
-		}
+	if m.listen != listen {
+		cleanupConn(m.listen)
+		m.listen = listen
+	}
+	if m.send != send {
+		cleanupConn(m.send)
+		m.send = send
 	}
 
-	send, err := m.updateSend(conf)
-	if err != nil {
-		return err
-	}
 	if send == nil {
 		m.sendTimer.Stop()
 	}
-	if m.send != send && m.send != nil {
-		err = m.send.Close()
+
+	m.aes = aes
+	m.conf = conf
+
+	return nil
+}
+
+func cleanupConn(conns ...*net.UDPConn) {
+	for _, conn := range conns {
+		if conn == nil {
+			continue
+		}
+
+		err := conn.Close()
 		if err != nil {
 			log.Println(err)
 		}
 	}
-
-	aes, err := NewAes(conf.Multicast.Secret)
-	if err != nil {
-		return err
-	}
-
-	m.aes = aes
-	m.listen = listen
-	m.send = send
-	m.conf = conf
-
-	return nil
 }
 
 func (m *Multicast) updateListen(conf *Conf) (*net.UDPConn, error) {

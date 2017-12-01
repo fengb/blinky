@@ -164,7 +164,6 @@ func (p *Pac) watchChanges() {
 	for event := range p.watcher.Events {
 		if strings.HasSuffix(event.Name, "db.lck") {
 			if event.Op&fsnotify.Create == fsnotify.Create {
-				//p.snapshotState.Local().Status = "updating"
 				debouncedUpdate.Cancel()
 			} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 				debouncedUpdate.Call()
