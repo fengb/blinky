@@ -2,17 +2,18 @@ package main
 
 import (
 	"log"
+	"net"
 	"net/http"
-	"time"
 )
 
 type Http struct {
-	conf *Conf
-	srv  *http.Server
+	conf     *Conf
+	srv      *http.Server
+	listener net.Listener
 }
 
 func NewHttp(conf *Conf) (Actor, error) {
-	h := &Http{conf: conf}
+	h := &Http{conf: conf, srv: &http.Server{}}
 
 	http.HandleFunc("/", h.Index)
 
@@ -38,47 +39,33 @@ func (h *Http) Index(w http.ResponseWriter, r *http.Request) {
 
 	err = h.conf.Http.Index.Execute(w, snapshot)
 	if err != nil {
-		// ???
+		log.Println(err)
 	}
 }
 
 func (h *Http) UpdateConf(conf *Conf) error {
-	if h.srv == nil || h.srv.Addr != conf.Http.Addr {
-		srv, err := startServer(conf.Http.Addr)
+	if h.listener == nil || h.conf.Http.Addr != conf.Http.Addr {
+		listener, err := net.Listen("tcp", conf.Http.Addr)
 		if err != nil {
 			return err
 		}
 
-		if h.srv != nil {
-			go func() {
-				// TODO: this doesn't stop listening...
-				err := h.srv.Shutdown(nil)
-				if err != nil {
-					log.Println(err)
-				}
-			}()
+		if h.listener != nil {
+			err = h.listener.Close()
+			if err != nil {
+				log.Println(err)
+			}
 		}
-		h.srv = srv
+
+		h.listener = listener
+		log.Println("Listening to", conf.Http.Addr)
+		go func() {
+			err := h.srv.Serve(listener)
+			log.Println(err)
+		}()
 	}
 
 	h.conf = conf
 
 	return nil
-}
-
-func startServer(addr string) (*http.Server, error) {
-	srv := &http.Server{Addr: addr}
-	log.Println("Listening on", addr)
-	listenError := make(chan error)
-	go func() {
-		listenError <- srv.ListenAndServe()
-	}()
-
-	select {
-	case err := <-listenError:
-		return nil, err
-	case <-time.After(1 * time.Second):
-		// TODO: listen on actual success
-		return srv, nil
-	}
 }
