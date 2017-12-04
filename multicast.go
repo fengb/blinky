@@ -12,7 +12,7 @@ import (
 
 const (
 	maxPacketSize = 8192
-	sendInterval  = 1 * time.Second
+	sendInterval  = 30 * time.Second
 )
 
 type Multicast struct {
@@ -29,7 +29,7 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 	m := Multicast{
 		conf:          &Conf{},
 		snapshotState: snapshotState,
-		sendTimer:     time.NewTimer(sendInterval),
+		sendTimer:     time.NewTimer(1 * time.Second),
 	}
 
 	err := m.UpdateConf(conf)
