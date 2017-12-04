@@ -29,7 +29,7 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 	m := Multicast{
 		conf:          &Conf{},
 		snapshotState: snapshotState,
-		sendTimer:     time.NewTimer(1 * time.Second),
+		sendTimer:     time.NewTimer(1 * time.Hour),
 	}
 
 	err := m.UpdateConf(conf)
@@ -37,17 +37,23 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 		return nil, err
 	}
 
-	m.sendCache, err = m.encode(snapshotState.Local())
-	if err != nil {
-		return nil, err
-	}
-
 	go func() {
-		for snapshot := range snapshotState.SubLocal() {
+		update := func(snapshot *Snapshot) {
 			m.sendCache, err = m.encode(snapshot)
 			if err != nil {
 				log.Println(err)
 			}
+
+			m.sendTimer.Stop()
+			m.sendTimer.Reset(1 * time.Nanosecond)
+		}
+
+		if snapshotState.Local() != nil {
+			update(snapshotState.Local())
+		}
+
+		for snapshot := range snapshotState.SubLocal() {
+			update(snapshot)
 		}
 	}()
 
