@@ -22,8 +22,8 @@ type Conf struct {
 	}
 
 	Refresh struct {
-		Enabled bool
-		At      Clock
+		Enable bool
+		At     Clock
 	}
 
 	Multicast struct {
@@ -74,8 +74,8 @@ func (c *Conf) parseHttp(sec *ini.Section) (err error) {
 }
 
 func (c *Conf) parseRefresh(sec *ini.Section) (err error) {
-	if sec.HasKey("enabled") {
-		c.Refresh.Enabled, err = sec.Key("enabled").Bool()
+	if sec.HasKey("enable") {
+		c.Refresh.Enable, err = sec.Key("enable").Bool()
 		if err != nil {
 			return err
 		}

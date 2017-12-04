@@ -35,7 +35,7 @@ func NewRefresh(conf *Conf) (Actor, error) {
 }
 
 func (r *Refresh) UpdateConf(conf *Conf) error {
-	if conf.Refresh.Enabled && !allowsPacmanSync() {
+	if conf.Refresh.Enable && !allowsPacmanSync() {
 		return errors.New("Cannot run pacman -S")
 	}
 
@@ -47,7 +47,7 @@ func (r *Refresh) UpdateConf(conf *Conf) error {
 
 func (r *Refresh) scheduleNext() {
 	r.timer.Stop()
-	if r.conf.Refresh.Enabled {
+	if r.conf.Refresh.Enable {
 		next := nextExecution(r.conf.Refresh.At)
 		log.Println("Next refresh:", next)
 		r.timer.Reset(time.Until(next))
