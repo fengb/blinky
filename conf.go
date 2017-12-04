@@ -26,7 +26,12 @@ type Conf struct {
 		At      Clock
 	}
 
-	Pac *Pac
+	Multicast struct {
+		Listen bool
+		Send   bool
+		Addr   string
+		Secret []byte
+	}
 
 	dir string
 }
@@ -38,17 +43,11 @@ func NewConf(dir string) (*Conf, error) {
 		return nil, err
 	}
 
-	err = conf.parseHttp(cfg.Section("http"))
-	if err != nil {
-		return nil, err
-	}
-
-	err = conf.parseRefresh(cfg.Section("refresh"))
-	if err != nil {
-		return nil, err
-	}
-
-	conf.Pac, err = NewPac("/etc/pacman.conf")
+	err = Parallel(
+		func() error { return conf.parseHttp(cfg.Section("http")) },
+		func() error { return conf.parseRefresh(cfg.Section("refresh")) },
+		func() error { return conf.parseMulticast(cfg.Section("multicast")) },
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -56,19 +55,14 @@ func NewConf(dir string) (*Conf, error) {
 	return &conf, err
 }
 
-func (c *Conf) Close() error {
-	return c.Pac.Close()
-}
-
-func (c *Conf) parseHttp(sec *ini.Section) error {
-	var err error
+func (c *Conf) parseHttp(sec *ini.Section) (err error) {
 	if sec.HasKey("addr") {
-		c.Http.Addr = sec.Key("addr").Value()
-	}
+		c.Http.Addr = sec.Key("addr").String()
 
-	_, _, err = net.SplitHostPort(c.Http.Addr)
-	if err != nil {
-		return err
+		_, _, err = net.SplitHostPort(c.Http.Addr)
+		if err != nil {
+			return err
+		}
 	}
 
 	c.Http.Index, err = template.ParseFiles(c.dir + "/index.html.tmpl")
@@ -79,8 +73,7 @@ func (c *Conf) parseHttp(sec *ini.Section) error {
 	return nil
 }
 
-func (c *Conf) parseRefresh(sec *ini.Section) error {
-	var err error
+func (c *Conf) parseRefresh(sec *ini.Section) (err error) {
 	if sec.HasKey("enabled") {
 		c.Refresh.Enabled, err = sec.Key("enabled").Bool()
 		if err != nil {
@@ -95,6 +88,37 @@ func (c *Conf) parseRefresh(sec *ini.Section) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (c *Conf) parseMulticast(sec *ini.Section) (err error) {
+	if sec.HasKey("listen") {
+		c.Multicast.Listen, err = sec.Key("listen").Bool()
+		if err != nil {
+			return err
+		}
+	}
+
+	if sec.HasKey("send") {
+		c.Multicast.Send, err = sec.Key("send").Bool()
+		if err != nil {
+			return err
+		}
+	}
+
+	if sec.HasKey("addr") {
+		c.Multicast.Addr = sec.Key("addr").String()
+
+		_, _, err = net.SplitHostPort(c.Multicast.Addr)
+		if err != nil {
+			return err
+		}
+	}
+
+	if sec.HasKey("secret") {
+		c.Multicast.Secret = []byte(sec.Key("secret").Value())
 	}
 
 	return nil

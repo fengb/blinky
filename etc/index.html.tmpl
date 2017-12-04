@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 
 <h1>blinky</h1>
-<p><strong>Synced:</strong> {{ .LastSync.Format "Jan 2 15:04" }}</h3>
-<p><strong>Status:</strong> {{ .Status }}</p>
+{{- block "snapshot" .Local }}
+<p><strong>Synced:</strong> {{ .LastSync.Format "Jan-2 15:04" }} &mdash; {{ .Status }}</p>
 <table>
   <tr>
     <th>Name</th>
@@ -17,3 +17,9 @@
     </tr>
   {{- end }}
 </table>
+{{- end }}
+
+{{- range .Network }}
+  <h3>{{ .Ip.String }} &mdash; {{ .Hostnames }}</h3>
+  {{- template "snapshot" .Snapshot }}
+{{- end }}
