@@ -1,5 +1,5 @@
 PREFIX ?=
-export VERSION = 0.2.0
+VERSION = 0.2.0
 LDFLAGS = "-s -w -X main.ConfDir=/etc/blinky -X main.Version=$(VERSION)"
 
 build/blinky: *.go
@@ -10,7 +10,7 @@ build/v%.tar.gz:
 	curl -fsL -o "$@" "https://github.com/fengb/blinky/archive/$(@F)"
 
 build/PKGBUILD-v%: build/v%.tar.gz scripts/PKGBUILD
-	SHA256=$$(scripts/sha256 "$<") scripts/expand_env scripts/PKGBUILD >"$@"
+	scripts/expand_vars VERSION=$(VERSION) SHA256=$$(scripts/sha256 "$<") <scripts/PKGBUILD >"$@"
 
 build/PKGBUILD: build/PKGBUILD-v$(VERSION)
 	cp "$<" "$@"
