@@ -2,18 +2,15 @@
 
 function reap {
   pkill -g $$
-  exit
 }
 trap "reap" EXIT
 
-function descendant_pids {
-  pgrep -g $$ | grep -v ^"$$"'$'
-}
-
 while true; do
-  go run *.go &
+  make build/blinky-dev
+  build/blinky-dev &
+  cid=$!
   inotifywait -qq --include "\.go$" --event modify,create,delete,attrib .
   sleep 1 # debounce!
-  kill $(descendant_pids) 2>/dev/null
+  kill $cid 2>/dev/null
   wait
 done
