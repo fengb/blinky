@@ -4,6 +4,7 @@
 
 **FIXES**
 * Multicast no longer starts to send without data
+* systemd configured to restart on failure, workaround for multicast listening before network start
 
 ## v0.2.0
 
