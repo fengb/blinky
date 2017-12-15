@@ -1,6 +1,6 @@
 # Blinky Changelog
 
-## Unreleased
+## v0.2.1
 
 **FIXES**
 * Multicast no longer starts to send without data

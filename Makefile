@@ -1,5 +1,5 @@
 PREFIX ?=
-VERSION = 0.2.0
+VERSION = 0.2.1
 
 build/blinky: BUILDFLAGS ?= -ldflags "-s -w -X main.ConfDir=/etc/blinky -X main.Version=$(VERSION)"
 build/blinky: *.go
