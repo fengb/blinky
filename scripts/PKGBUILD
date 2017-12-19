@@ -8,6 +8,11 @@ license=('MIT')
 makedepends=('go')
 source=("https://github.com/fengb/blinky/archive/v${pkgver}.tar.gz")
 sha256sums=("$SHA256")
+backup=(
+  etc/blinky/blinky.conf
+  etc/blinky/index.html.tmpl
+  usr/lib/systemd/system/blinky.service
+)
 
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}"

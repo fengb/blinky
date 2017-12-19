@@ -1,5 +1,10 @@
 # Blinky Changelog
 
+## Unreleased
+
+**FIXES**
+* Upgrades correctly backs up config changes
+
 ## v0.2.1
 
 **FIXES**
