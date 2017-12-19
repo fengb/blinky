@@ -40,7 +40,7 @@ func watchSignals(actors ...Actor) {
 
 func main() {
 	if ConfDir == "" {
-		ConfDir = "etc"
+		ConfDir = "static_files/etc/blinky"
 	}
 
 	snapshotState := NewSnapshotState()

@@ -14,14 +14,17 @@ build/v%.tar.gz:
 	curl -fsL -o "$@" "https://github.com/fengb/blinky/archive/$(@F)"
 
 build/PKGBUILD-v%: build/v%.tar.gz scripts/PKGBUILD
-	scripts/expand_vars VERSION=$(VERSION) SHA256=$$(scripts/sha256 "$<") <scripts/PKGBUILD >"$@"
+	scripts/expand_vars <scripts/PKGBUILD >"$@" \
+	  VERSION=$(VERSION) \
+	  SHA256="$$(scripts/sha256 "$<")" \
+	  STATIC_FILES="$$(find static_files -type f -printf '\n  "%P"')"
 
 build/PKGBUILD: build/PKGBUILD-v$(VERSION)
 	cp "$<" "$@"
 
 .SECONDARY:
 
-.PHONY: build clean pkgbuild makepkg install uninstall
+.PHONY: build clean pkgbuild makepkg
 
 build: build/blinky
 
@@ -34,13 +37,3 @@ makepkg: USER ?= nobody
 makepkg: build/PKGBUILD
 	chmod 777 build
 	cd build && su -s /bin/bash -c "makepkg --clean" $(USER)
-
-install: build
-	install -D -m0644 -t$(PREFIX)/etc/blinky etc/*
-	install -D -m0755 -t$(PREFIX)/usr/bin build/blinky
-	install -D -m0644 -t$(PREFIX)/usr/lib/systemd/system systemd/*
-
-uninstall:
-	rm -r $(PREFIX)/etc/blinky
-	rm $(PREFIX)/usr/bin/blinky
-	rm $(PREFIX)/usr/lib/systemd/system/blinky*.service

@@ -1,3 +1,5 @@
+_static_files=($STATIC_FILES)
+
 pkgname=blinky
 pkgver=$VERSION
 pkgrel=1
@@ -8,18 +10,17 @@ license=('MIT')
 makedepends=('go')
 source=("https://github.com/fengb/blinky/archive/v${pkgver}.tar.gz")
 sha256sums=("$SHA256")
-backup=(
-  etc/blinky/blinky.conf
-  etc/blinky/index.html.tmpl
-  usr/lib/systemd/system/blinky.service
-)
+backup=("${_static_files[@]}")
 
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}"
-  make
+  make build/blinky
 }
 
 package() {
   cd "${srcdir}/${pkgname}-${pkgver}"
-  make PREFIX="${pkgdir}" install
+  install -D -m0755 "-t$pkgdir/usr/bin" build/blinky
+  for file in "${_static_files[@]}"; do
+    install -D -m0644 "-t$pkgdir/$file" "static_files/$file"
+  done
 }
