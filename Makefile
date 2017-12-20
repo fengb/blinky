@@ -16,7 +16,7 @@ build/v%.tar.gz:
 build/PKGBUILD-v%: build/v%.tar.gz scripts/PKGBUILD
 	scripts/expand_vars <scripts/PKGBUILD >"$@" \
 	  VERSION=$(VERSION) \
-	  SHA256="$$(scripts/sha256 "$<")" \
+	  SHA256="$$(sha256sum '$<' | cut -d' ' -f1)" \
 	  STATIC_FILES="$$(find static_files -type f -printf '\n  "%P"')"
 
 build/PKGBUILD: build/PKGBUILD-v$(VERSION)
