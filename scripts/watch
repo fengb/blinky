@@ -6,8 +6,9 @@ function reap {
 trap "reap" EXIT
 
 while true; do
-  make build/blinky-dev
-  build/blinky-dev &
+  if make build/blinky-dev; then
+    build/blinky-dev &
+  fi
   cid=$!
   inotifywait -qq --include "\.go$" --event modify,create,delete,attrib .
   sleep 1 # debounce!
