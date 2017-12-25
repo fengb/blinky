@@ -29,7 +29,7 @@ func NewAes(key []byte) (*Aes, error) {
 
 func (a *Aes) Encrypt(plaintext []byte) ([]byte, error) {
 	padded := a.pad(plaintext)
-	ciphertext := make([]byte, aes.BlockSize+len(padded))
+	ciphertext := make([]byte, len(padded)+aes.BlockSize)
 	iv := ciphertext[:aes.BlockSize]
 	_, err := rand.Read(iv)
 	if err != nil {

@@ -116,15 +116,15 @@ func (s *SnapshotState) UpdateNetworkLink(
 }
 
 func (s *SnapshotState) Network() []NetworkLink {
-	keys := []string{}
+	keys := make([]string, 0, len(s.networkLookup))
 	for key := range s.networkLookup {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 
-	slice := make([]NetworkLink, len(keys))
-	for i, key := range keys {
-		slice[i] = s.networkLookup[key]
+	slice := make([]NetworkLink, 0, len(keys))
+	for _, key := range keys {
+		slice = append(slice, s.networkLookup[key])
 	}
 	return slice
 }

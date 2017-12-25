@@ -136,7 +136,7 @@ func (p *Pac) fetchPackages() ([]Package, error) {
 		return nil, err
 	}
 
-	packages := []Package{}
+	packages := make([]Package, 0)
 	localDb.PkgCache().ForEach(func(alpmPkg alpm.Package) error {
 		pkg := Package{Name: alpmPkg.Name(), Version: alpmPkg.Version()}
 		newAlpmPkg := alpmPkg.NewVersion(syncDbs)

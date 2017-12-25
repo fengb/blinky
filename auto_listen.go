@@ -60,7 +60,7 @@ func NewAutoListen(addr *net.UDPAddr) (*AutoListen, error) {
 }
 
 func (a *AutoListen) Close() error {
-	var closeAll [](func() error)
+	closeAll := make([]func() error, 0, len(a.conns))
 	for _, conn := range a.conns {
 		closeAll = append(closeAll, conn.Close)
 	}
