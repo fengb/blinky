@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+**FEATURES**
+* Multicast automatically connects when network interface becomes active
+
 **FIXES**
 * Upgrades correctly backs up config changes
 

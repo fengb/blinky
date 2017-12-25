@@ -4,22 +4,21 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
+	"reflect"
 	"time"
 )
 
-const (
-	maxPacketSize = 8192
-	sendInterval  = 30 * time.Second
-)
+const sendInterval = 30 * time.Second
 
 type Multicast struct {
 	conf          *Conf
 	snapshotState *SnapshotState
 	aes           *Aes
-	listen        *net.UDPConn
+	listen        *AutoListen
 	sendCache     []byte
 	send          *net.UDPConn
 	sendTimer     *time.Timer
@@ -75,7 +74,7 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 func (m *Multicast) UpdateConf(conf *Conf) error {
 	var (
 		aes    *Aes
-		listen *net.UDPConn
+		listen *AutoListen
 		send   *net.UDPConn
 	)
 
@@ -95,7 +94,7 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	)
 
 	if err != nil {
-		cleanupConn(listen, send)
+		closeAll(listen, send)
 		return err
 	}
 
@@ -104,11 +103,11 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	}
 
 	if m.listen != listen {
-		cleanupConn(m.listen)
+		closeAll(m.listen)
 		m.listen = listen
 	}
 	if m.send != send {
-		cleanupConn(m.send)
+		closeAll(m.send)
 		m.send = send
 	}
 
@@ -118,20 +117,20 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	return nil
 }
 
-func cleanupConn(conns ...*net.UDPConn) {
-	for _, conn := range conns {
-		if conn == nil {
+func closeAll(closers ...io.Closer) {
+	for _, closer := range closers {
+		if closer == nil || reflect.ValueOf(closer).IsNil() {
 			continue
 		}
 
-		err := conn.Close()
+		err := closer.Close()
 		if err != nil {
 			log.Println(err)
 		}
 	}
 }
 
-func (m *Multicast) updateListen(conf *Conf) (*net.UDPConn, error) {
+func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
 	if !conf.Multicast.Listen {
 		return nil, nil
 	}
@@ -146,35 +145,26 @@ func (m *Multicast) updateListen(conf *Conf) (*net.UDPConn, error) {
 		return nil, err
 	}
 
-	conn, err := net.ListenMulticastUDP("udp", nil, addr)
+	listener, err := NewAutoListen(addr)
 	if err != nil {
 		return nil, err
 	}
-	log.Println("Listening on", addr)
 
 	go func() {
-		conn.SetReadBuffer(maxPacketSize)
-		for {
-			packet := make([]byte, maxPacketSize)
-			n, src, err := conn.ReadFromUDP(packet)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			if m.send != nil && m.send.LocalAddr().String() == src.String() {
+		for msg := range listener.C {
+			if m.send != nil && m.send.LocalAddr().String() == msg.Src.String() {
 				// We sent this. Ignore!
 				continue
 			}
 
-			err = m.snapshotState.UpdateNetworkLink(src, packet[:n], m.decode)
+			err = m.snapshotState.UpdateNetworkLink(msg.Src, msg.Packet, m.decode)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 	}()
 
-	return conn, nil
+	return listener, nil
 }
 
 func (m *Multicast) updateSend(conf *Conf) (*net.UDPConn, error) {
