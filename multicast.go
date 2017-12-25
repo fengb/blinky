@@ -18,7 +18,7 @@ type Multicast struct {
 	conf          *Conf
 	snapshotState *SnapshotState
 	aes           *Aes
-	listen        *MulticastListen
+	listen        *AutoListen
 	sendCache     []byte
 	send          *net.UDPConn
 	sendTimer     *time.Timer
@@ -74,7 +74,7 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 func (m *Multicast) UpdateConf(conf *Conf) error {
 	var (
 		aes    *Aes
-		listen *MulticastListen
+		listen *AutoListen
 		send   *net.UDPConn
 	)
 
@@ -130,7 +130,7 @@ func closeAll(closers ...io.Closer) {
 	}
 }
 
-func (m *Multicast) updateListen(conf *Conf) (*MulticastListen, error) {
+func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
 	if !conf.Multicast.Listen {
 		return nil, nil
 	}
@@ -145,7 +145,7 @@ func (m *Multicast) updateListen(conf *Conf) (*MulticastListen, error) {
 		return nil, err
 	}
 
-	listener, err := NewMulticastListen(addr)
+	listener, err := NewAutoListen(addr)
 	if err != nil {
 		return nil, err
 	}

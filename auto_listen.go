@@ -14,15 +14,15 @@ type ReadMsg struct {
 	Src    *net.UDPAddr
 }
 
-type MulticastListen struct {
-	Addr           *net.UDPAddr
-	C              chan ReadMsg
-	listeners      map[string]*net.UDPConn
-	linkUpdateDone chan struct{}
+type AutoListen struct {
+	Addr       *net.UDPAddr
+	C          chan ReadMsg
+	conns      map[string]*net.UDPConn
+	updateDone chan struct{}
 }
 
-func NewMulticastListen(addr *net.UDPAddr) (*MulticastListen, error) {
-	m := MulticastListen{
+func NewAutoListen(addr *net.UDPAddr) (*AutoListen, error) {
+	a := AutoListen{
 		addr,
 		make(chan ReadMsg),
 		make(map[string]*net.UDPConn),
@@ -35,12 +35,12 @@ func NewMulticastListen(addr *net.UDPAddr) (*MulticastListen, error) {
 	}
 
 	for _, iface := range ifaces {
-		go m.connect(iface)
+		go a.connect(iface)
 	}
 
 	go func() {
 		updates := make(chan netlink.LinkUpdate)
-		netlink.LinkSubscribe(updates, m.linkUpdateDone)
+		netlink.LinkSubscribe(updates, a.updateDone)
 		for update := range updates {
 			iface, err := net.InterfaceByName(update.Attrs().Name)
 			if err != nil {
@@ -49,30 +49,34 @@ func NewMulticastListen(addr *net.UDPAddr) (*MulticastListen, error) {
 			}
 
 			if update.Flags&unix.IFF_RUNNING == unix.IFF_RUNNING {
-				m.connect(*iface)
+				a.connect(*iface)
 			} else {
-				m.disconnect(*iface)
+				a.disconnect(*iface)
 			}
 		}
 	}()
 
-	return &m, nil
+	return &a, nil
 }
 
-func (m *MulticastListen) Close() error {
+func (a *AutoListen) Close() error {
 	var closeAll [](func() error)
-	for _, conn := range m.listeners {
+	for _, conn := range a.conns {
 		closeAll = append(closeAll, conn.Close)
 	}
 
 	err := Parallel(closeAll...)
-	close(m.C)
-	close(m.linkUpdateDone)
+	close(a.C)
+	close(a.updateDone)
 	return err
 }
 
-func (m *MulticastListen) connect(iface net.Interface) error {
-	if m.listeners[iface.Name] != nil {
+func (a *AutoListen) isConnected(iface net.Interface) bool {
+	return a.conns[iface.Name] != nil
+}
+
+func (a *AutoListen) connect(iface net.Interface) error {
+	if a.isConnected(iface) {
 		return nil
 	}
 
@@ -80,16 +84,16 @@ func (m *MulticastListen) connect(iface net.Interface) error {
 		return nil
 	}
 
-	conn, err := net.ListenMulticastUDP("udp", &iface, m.Addr)
+	conn, err := net.ListenMulticastUDP("udp", &iface, a.Addr)
 	if err != nil {
 		return err
 	}
 
-	m.listeners[iface.Name] = conn
+	a.conns[iface.Name] = conn
 	log.Println("Connected to", iface.Name)
 
 	go func() {
-		defer m.disconnect(iface)
+		defer a.disconnect(iface)
 
 		conn.SetReadBuffer(maxPacketSize)
 		for {
@@ -97,24 +101,28 @@ func (m *MulticastListen) connect(iface net.Interface) error {
 
 			n, src, err := conn.ReadFromUDP(packet)
 			if err != nil {
+				if !a.isConnected(iface) {
+					return
+				}
+
 				log.Println(err)
 				continue
 			}
 
-			m.C <- ReadMsg{packet[:n], src}
+			a.C <- ReadMsg{packet[:n], src}
 		}
 	}()
 
 	return nil
 }
 
-func (m *MulticastListen) disconnect(iface net.Interface) error {
-	if m.listeners[iface.Name] == nil {
+func (a *AutoListen) disconnect(iface net.Interface) error {
+	if !a.isConnected(iface) {
 		return nil
 	}
 
-	err := m.listeners[iface.Name].Close()
-	m.listeners[iface.Name] = nil
+	err := a.conns[iface.Name].Close()
+	a.conns[iface.Name] = nil
 
 	return err
 }
