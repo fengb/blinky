@@ -1,12 +1,12 @@
 # Blinky Changelog
 
-## Unreleased
+## v0.3.0
 
 **FEATURES**
-* Multicast automatically connects when network interface becomes active
+* Multicast automatically listens when network interfaces connect
 
 **FIXES**
-* Upgrades correctly backs up config changes
+* Upgrades correctly back up config changes
 
 ## v0.2.1
 
