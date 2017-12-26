@@ -12,6 +12,10 @@ source=("https://github.com/fengb/blinky/archive/v${pkgver}.tar.gz")
 sha256sums=("$SHA256")
 backup=("${_static_files[@]}")
 
+_log() {
+  echo "$@" && "$@"
+}
+
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}"
   make build/blinky
@@ -19,8 +23,8 @@ build() {
 
 package() {
   cd "${srcdir}/${pkgname}-${pkgver}"
-  install -D -m0755 "-t$pkgdir/usr/bin" build/blinky
+  _log install -D -m0755 build/blinky "$pkgdir/usr/bin/blinky"
   for file in "${_static_files[@]}"; do
-    install -D -m0644 "-t$pkgdir/$file" "static_files/$file"
+    _log install -D -m0644 "static_files/$file" "$pkgdir/$file"
   done
 }
