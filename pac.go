@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/Jguer/go-alpm"
 	"github.com/fsnotify/fsnotify"
 	"github.com/serverhorror/rog-go/reverse"
 	"log"
@@ -12,7 +11,6 @@ import (
 
 type Pac struct {
 	snapshotState *SnapshotState
-	conf          alpm.PacmanConfig
 	dbpath        string
 	logfile       string
 	watcher       *fsnotify.Watcher
@@ -25,19 +23,12 @@ func NewPac(filename string, snapshotState *SnapshotState) (*Pac, error) {
 	}
 	defer f.Close()
 
-	conf, err := alpm.ParseConfig(f)
-	if err != nil {
-		return nil, err
-	}
+	pac := Pac{snapshotState: snapshotState}
 
-	pac := Pac{snapshotState: snapshotState, conf: conf}
-
-	pac.dbpath = conf.DBPath
 	if pac.dbpath == "" {
 		pac.dbpath = "/var/lib/pacman"
 	}
 
-	pac.logfile = conf.LogFile
 	if pac.logfile == "" {
 		pac.logfile = "/var/log/pacman.log"
 	}
@@ -120,32 +111,18 @@ func (p *Pac) fetchLastSync() (time.Time, error) {
 }
 
 func (p *Pac) fetchPackages() ([]Package, error) {
-	handle, err := p.conf.CreateHandle()
-	if err != nil {
-		return nil, err
-	}
-	defer handle.Release()
-
-	localDb, err := handle.LocalDb()
+	stdout, stderr, err := CmdRun("pacman", "-Qu")
 	if err != nil {
 		return nil, err
 	}
 
-	syncDbs, err := handle.SyncDbs()
-	if err != nil {
-		return nil, err
-	}
-
-	packages := make([]Package, 0)
-	localDb.PkgCache().ForEach(func(alpmPkg alpm.Package) error {
-		pkg := Package{Name: alpmPkg.Name(), Version: alpmPkg.Version()}
-		newAlpmPkg := alpmPkg.NewVersion(syncDbs)
-		if newAlpmPkg != nil {
-			pkg.Upgrade = newAlpmPkg.Version()
-		}
+	lines := strings.Split(stdout, "\n")
+	packages := make([]Package, len(lines))
+	for _, line := range lines {
+		tokens := strings.Split(line, " ")
+		pkg := Package{Name: tokens[0], Version: tokens[1], Upgrade: tokens[3]}
 		packages = append(packages, pkg)
-		return nil
-	})
+	}
 
 	return packages, nil
 }
