@@ -43,36 +43,30 @@ func main() {
 		ConfDir = "static_files/etc/blinky"
 	}
 
-	snapshotState := NewSnapshotState()
-
 	conf, err := NewConf(ConfDir)
 	if err != nil {
 		panic(err)
 	}
 
-	var pac, refresh, multicast, http Actor
-	err = Parallel(
-		func() (err error) {
-			pac, err = NewPac("/etc/pacman.conf", snapshotState)
-			return err
-		},
-		func() (err error) {
-			refresh, err = NewRefresh(conf)
-			return err
-		},
-		func() (err error) {
-			multicast, err = NewMulticast(conf, snapshotState)
-			return err
-		},
-		func() (err error) {
-			http, err = NewHttp(conf, snapshotState)
-			return err
-		},
-	)
-
+	local, err := NewLocal()
 	if err != nil {
 		panic(err)
 	}
 
-	watchSignals(pac, refresh, http, multicast)
+	refresh, err := NewRefresh(conf)
+	if err != nil {
+		panic(err)
+	}
+
+	multicast, err := NewMulticast(conf)
+	if err != nil {
+		panic(err)
+	}
+
+	http, err := NewHttp(conf, local, multicast)
+	if err != nil {
+		panic(err)
+	}
+
+	watchSignals(local, refresh, multicast, http)
 }

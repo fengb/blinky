@@ -7,14 +7,15 @@ import (
 )
 
 type Http struct {
-	conf          *Conf
-	snapshotState *SnapshotState
-	srv           *http.Server
-	listener      net.Listener
+	conf      *Conf
+	local     *Local
+	multicast *Multicast
+	srv       *http.Server
+	listener  net.Listener
 }
 
-func NewHttp(conf *Conf, snapshotState *SnapshotState) (Actor, error) {
-	h := &Http{conf: conf, snapshotState: snapshotState, srv: &http.Server{}}
+func NewHttp(conf *Conf, local *Local, multicast *Multicast) (Actor, error) {
+	h := &Http{conf: conf, local: local, multicast: multicast, srv: &http.Server{}}
 
 	http.HandleFunc("/", h.Index)
 
@@ -32,7 +33,7 @@ func (h *Http) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.conf.Http.Index.Execute(w, h.snapshotState)
+	err := h.conf.Http.Index.Execute(w, h.local.Snapshot)
 	if err != nil {
 		log.Println(err)
 	}

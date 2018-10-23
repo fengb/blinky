@@ -9,70 +9,64 @@ import (
 	"time"
 )
 
-type Pac struct {
-	snapshotState *SnapshotState
-	dbpath        string
-	logfile       string
-	watcher       *fsnotify.Watcher
+type Local struct {
+	Snapshot *Snapshot
+	dbpath   string
+	logfile  string
+	watcher  *fsnotify.Watcher
 }
 
-func NewPac(filename string, snapshotState *SnapshotState) (*Pac, error) {
-	f, err := os.Open(filename)
+func NewLocal() (*Local, error) {
+	loc := Local{}
+
+	if loc.dbpath == "" {
+		loc.dbpath = "/var/lib/pacman"
+	}
+
+	if loc.logfile == "" {
+		loc.logfile = "/var/log/pacman.log"
+	}
+
+	err := loc.updateSnapshot()
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
-	pac := Pac{snapshotState: snapshotState}
-
-	if pac.dbpath == "" {
-		pac.dbpath = "/var/lib/pacman"
-	}
-
-	if pac.logfile == "" {
-		pac.logfile = "/var/log/pacman.log"
-	}
-
-	err = pac.updateSnapshot()
-	if pac.snapshotState.Local() == nil {
+	if loc.Snapshot == nil {
 		panic("wtf")
 	}
+
+	loc.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 
-	pac.watcher, err = fsnotify.NewWatcher()
+	err = loc.watcher.Add(loc.dbpath)
 	if err != nil {
+		loc.watcher.Close()
 		return nil, err
 	}
 
-	err = pac.watcher.Add(pac.dbpath)
-	if err != nil {
-		pac.watcher.Close()
-		return nil, err
-	}
+	go loc.watchChanges()
+	go loc.watchErrors()
 
-	go pac.watchChanges()
-	go pac.watchErrors()
-
-	return &pac, nil
+	return &loc, nil
 }
 
-func (p *Pac) UpdateConf(conf *Conf) error {
+func (l *Local) UpdateConf(conf *Conf) error {
 	// TODO: reload pacman.conf / watcher
 	return nil
 }
 
-func (p *Pac) updateSnapshot() error {
+func (l *Local) updateSnapshot() error {
 	snapshot := Snapshot{}
 
 	err := Parallel(
 		func() (err error) {
-			snapshot.LastSync, err = p.fetchLastSync()
+			snapshot.LastSync, err = l.fetchLastSync()
 			return err
 		},
 		func() (err error) {
-			snapshot.Packages, err = p.fetchPackages()
+			snapshot.Packages, err = l.fetchPackages()
 			return err
 		},
 	)
@@ -81,12 +75,12 @@ func (p *Pac) updateSnapshot() error {
 		return err
 	}
 
-	p.snapshotState.UpdateLocal(&snapshot)
+	l.Snapshot = &snapshot
 	return nil
 }
 
-func (p *Pac) fetchLastSync() (time.Time, error) {
-	f, err := os.Open(p.logfile)
+func (l *Local) fetchLastSync() (time.Time, error) {
+	f, err := os.Open(l.logfile)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -110,7 +104,7 @@ func (p *Pac) fetchLastSync() (time.Time, error) {
 	return time.ParseInLocation("2006-01-02 15:04", line[1:17], loc)
 }
 
-func (p *Pac) fetchPackages() ([]Package, error) {
+func (l *Local) fetchPackages() ([]Package, error) {
 	stdout, stderr, err := CmdRun("pacman", "-Qu")
 	if err != nil {
 		log.Println(stderr)
@@ -128,16 +122,16 @@ func (p *Pac) fetchPackages() ([]Package, error) {
 	return packages, nil
 }
 
-func (p *Pac) watchChanges() {
+func (l *Local) watchChanges() {
 	debouncedUpdate := NewDebounced(1000, func() {
-		err := p.updateSnapshot()
+		err := l.updateSnapshot()
 		if err != nil {
 			// How to handle?
 			log.Println(err)
 		}
 	})
 
-	for event := range p.watcher.Events {
+	for event := range l.watcher.Events {
 		if strings.HasSuffix(event.Name, "db.lck") {
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				debouncedUpdate.Cancel()
@@ -148,8 +142,8 @@ func (p *Pac) watchChanges() {
 	}
 }
 
-func (p *Pac) watchErrors() {
-	for err := range p.watcher.Errors {
+func (l *Local) watchErrors() {
+	for err := range l.watcher.Errors {
 		log.Println(err)
 	}
 }

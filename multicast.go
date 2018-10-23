@@ -16,7 +16,7 @@ const sendInterval = 30 * time.Second
 
 type Multicast struct {
 	conf          *Conf
-	snapshotState *SnapshotState
+	networkLookup map[string]networkLink
 	aes           *Aes
 	listen        *AutoListen
 	sendCache     []byte
@@ -24,10 +24,18 @@ type Multicast struct {
 	sendTimer     *time.Timer
 }
 
-func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) {
+type networkLink struct {
+	Ip          net.IP
+	Hostnames   []string
+	LastContact time.Time
+	Snapshot    *Snapshot
+	raw         []byte
+}
+
+func NewMulticast(conf *Conf) (*Multicast, error) {
 	m := Multicast{
 		conf:          &Conf{},
-		snapshotState: snapshotState,
+		networkLookup: make(map[string]networkLink),
 		sendTimer:     time.NewTimer(1 * time.Hour),
 	}
 
@@ -36,25 +44,25 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 		return nil, err
 	}
 
-	go func() {
-		update := func(snapshot *Snapshot) {
-			m.sendCache, err = m.encode(snapshot)
-			if err != nil {
-				log.Println(err)
-			}
+	// go func() {
+	// 	update := func(snapshot *Snapshot) {
+	// 		m.sendCache, err = m.encode(snapshot)
+	// 		if err != nil {
+	// 			log.Println(err)
+	// 		}
 
-			m.sendTimer.Stop()
-			m.sendTimer.Reset(1 * time.Nanosecond)
-		}
+	// 		m.sendTimer.Stop()
+	// 		m.sendTimer.Reset(1 * time.Nanosecond)
+	// 	}
 
-		if snapshotState.Local() != nil {
-			update(snapshotState.Local())
-		}
+	// 	if snapshotState.Local() != nil {
+	// 		update(snapshotState.Local())
+	// 	}
 
-		for snapshot := range snapshotState.SubLocal() {
-			update(snapshot)
-		}
-	}()
+	// 	for snapshot := range snapshotState.SubLocal() {
+	// 		update(snapshot)
+	// 	}
+	// }()
 
 	go func() {
 		for _ = range m.sendTimer.C {
@@ -157,7 +165,7 @@ func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
 				continue
 			}
 
-			err = m.snapshotState.UpdateNetworkLink(msg.Src, msg.Packet, m.decode)
+			err = m.updateNetwork(msg.Src, msg.Packet)
 			if err != nil {
 				log.Println(err)
 			}
@@ -165,6 +173,29 @@ func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
 	}()
 
 	return listener, nil
+}
+
+func (m *Multicast) updateNetwork(addr *net.UDPAddr, raw []byte) error {
+	ipString := addr.IP.String()
+	cache, ok := m.networkLookup[ipString]
+	if ok && bytes.Equal(raw, cache.raw) {
+		cache.LastContact = time.Now()
+		m.networkLookup[ipString] = cache
+		return nil
+	}
+
+	snapshot, err := m.decode(raw)
+	if err != nil {
+		return err
+	}
+
+	cache = networkLink{raw: raw, Ip: addr.IP, LastContact: time.Now(), Snapshot: snapshot}
+	cache.Hostnames, _ = net.LookupAddr(ipString)
+
+	m.networkLookup[ipString] = cache
+	log.Println("Update received from", ipString)
+
+	return nil
 }
 
 func (m *Multicast) updateSend(conf *Conf) (*net.UDPConn, error) {
