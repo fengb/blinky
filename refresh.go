@@ -1,14 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"log"
-	"os/exec"
+	"strings"
 	"time"
 )
-
-var root = []byte("root")
 
 type Refresh struct {
 	conf  *Conf
@@ -56,21 +53,15 @@ func (r *Refresh) scheduleNext() {
 
 func allowsPacmanSync() bool {
 	// Ideally use an exit status but all errors are 1
-	cmd := exec.Command("pacman", "-S")
-	buf := &bytes.Buffer{}
-	cmd.Stderr = buf
-	cmd.Run()
-	return !bytes.Contains(buf.Bytes(), root)
+	_, stderr, _ := CmdRun("pacman", "-S")
+	return !strings.Contains(stderr, "root")
 }
 
 func runRefresh() {
 	log.Println("Running pacman --noconfirm -Syuwq")
-	cmd := exec.Command("pacman", "--noconfirm", "-Syuwq")
-	buf := &bytes.Buffer{}
-	cmd.Stderr = buf
-	err := cmd.Run()
+	_, stderr, err := CmdRun("pacman", "--noconfirm", "-Syuwq")
 	if err != nil {
-		log.Println(buf.String())
+		log.Println(stderr)
 	}
 }
 
