@@ -18,6 +18,7 @@ type Local struct {
 
 func NewLocal() (*Local, error) {
 	loc := Local{}
+	var err error
 
 	if loc.dbpath == "" {
 		loc.dbpath = "/var/lib/pacman"
@@ -27,12 +28,9 @@ func NewLocal() (*Local, error) {
 		loc.logfile = "/var/log/pacman.log"
 	}
 
-	err := loc.updateSnapshot()
+	loc.Snapshot, err = loc.fetchSnapshot()
 	if err != nil {
 		return nil, err
-	}
-	if loc.Snapshot == nil {
-		panic("wtf")
 	}
 
 	loc.watcher, err = fsnotify.NewWatcher()
@@ -57,7 +55,7 @@ func (l *Local) UpdateConf(conf *Conf) error {
 	return nil
 }
 
-func (l *Local) updateSnapshot() error {
+func (l *Local) fetchSnapshot() (*Snapshot, error) {
 	snapshot := Snapshot{}
 
 	err := Parallel(
@@ -72,11 +70,9 @@ func (l *Local) updateSnapshot() error {
 	)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	l.Snapshot = &snapshot
-	return nil
+	return &snapshot, nil
 }
 
 func (l *Local) fetchLastSync() (time.Time, error) {
@@ -123,10 +119,12 @@ func (l *Local) fetchPackages() ([]Package, error) {
 
 func (l *Local) watchChanges() {
 	debouncedUpdate := NewDebounced(1000, func() {
-		err := l.updateSnapshot()
+		snapshot, err := l.fetchSnapshot()
 		if err != nil {
 			// How to handle?
 			log.Println(err)
+		} else {
+			l.Snapshot = snapshot
 		}
 	})
 
