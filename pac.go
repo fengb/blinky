@@ -111,10 +111,9 @@ func (p *Pac) fetchLastSync() (time.Time, error) {
 }
 
 func (p *Pac) fetchPackages() ([]Package, error) {
-	stdout, stderr, err := CmdRun("pacman", "-Qu")
+	stdout, _, err := CmdRun("pacman", "-Qu")
 	if err != nil {
-		log.Println(stderr)
-		return make([]Package, 0), err
+		return nil, err
 	}
 
 	lines := strings.Split(stdout, "\n")
