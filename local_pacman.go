@@ -91,9 +91,9 @@ func (p *LocalPacman) fetchPackages() ([]Package, error) {
 	}
 
 	lines := strings.Split(stdout, "\n")
-	packages := make([]Package, len(lines))
+	packages := make([]Package, 0, len(lines))
 	for _, line := range lines {
-		tokens := strings.Split(line, " ")
+		tokens := strings.Fields(line)
 		pkg := Package{Name: tokens[0], Version: tokens[1], Upgrade: tokens[3]}
 		packages = append(packages, pkg)
 	}
