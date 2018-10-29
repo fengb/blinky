@@ -2,8 +2,8 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"os/exec"
+	"strings"
 )
 
 type CmdError struct {
@@ -11,10 +11,16 @@ type CmdError struct {
 }
 
 func (e *CmdError) Error() string {
-	return fmt.Sprintf("%s\n%s", e.ExitError.Error(), e.Stderr)
+	return e.ExitError.Error() + "\n" + string(e.Stderr)
 }
 
 func CmdRun(name string, args ...string) (string, string, error) {
+	stdout, stderr, err := CmdRunBytes(name, args...)
+	// Posix programs output a newline at the end. This should not be a part of the typical API.
+	return strings.TrimSuffix(string(stdout), "\n"), strings.TrimSuffix(string(stderr), "\n"), err
+}
+
+func CmdRunBytes(name string, args ...string) ([]byte, []byte, error) {
 	cmd := exec.Command(name, args...)
 	outbuff := &bytes.Buffer{}
 	errbuff := &bytes.Buffer{}
@@ -24,8 +30,8 @@ func CmdRun(name string, args ...string) (string, string, error) {
 
 	exitErr, ok := err.(*exec.ExitError)
 	if !ok {
-		return outbuff.String(), errbuff.String(), err
+		return outbuff.Bytes(), errbuff.Bytes(), err
 	}
 	exitErr.Stderr = errbuff.Bytes()
-	return outbuff.String(), string(exitErr.Stderr), &CmdError{exitErr}
+	return outbuff.Bytes(), exitErr.Stderr, &CmdError{exitErr}
 }
