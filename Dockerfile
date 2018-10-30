@@ -1,8 +1,8 @@
 ARG IMAGE=base/archlinux
-FROM ${IMAGE}:latest
+FROM ${IMAGE}:2018.10.01
 
 RUN pacman --noconfirm \
-           -Syu fakeroot gcc make git go inotify-tools \
+           -Sy fakeroot gcc make git go inotify-tools \
     && rm -rf \
          /var/cache/pacman/pkg/* \
          /var/lib/pacman/sync/* \
