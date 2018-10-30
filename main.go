@@ -53,11 +53,6 @@ func main() {
 		panic(err)
 	}
 
-	refresh, err := NewRefresh(conf)
-	if err != nil {
-		panic(err)
-	}
-
 	multicast, err := NewMulticast(conf)
 	if err != nil {
 		panic(err)
@@ -68,5 +63,5 @@ func main() {
 		panic(err)
 	}
 
-	watchSignals(local, refresh, multicast, http)
+	watchSignals(local, multicast, http)
 }

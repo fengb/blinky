@@ -4,26 +4,12 @@ import (
 	"gopkg.in/ini.v1"
 	"html/template"
 	"net"
-	"time"
 )
-
-const hhmm = "15:04"
-
-type Clock interface {
-	Hour() int
-	Minute() int
-	Second() int
-}
 
 type Conf struct {
 	Http struct {
 		Addr  string
 		Index *template.Template
-	}
-
-	Refresh struct {
-		Enable bool
-		At     Clock
 	}
 
 	Multicast struct {
@@ -45,7 +31,6 @@ func NewConf(dir string) (*Conf, error) {
 
 	err = Parallel(
 		func() error { return conf.parseHttp(cfg.Section("http")) },
-		func() error { return conf.parseRefresh(cfg.Section("refresh")) },
 		func() error { return conf.parseMulticast(cfg.Section("multicast")) },
 	)
 	if err != nil {
@@ -68,26 +53,6 @@ func (c *Conf) parseHttp(sec *ini.Section) (err error) {
 	c.Http.Index, err = template.ParseFiles(c.dir + "/index.html.tmpl")
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (c *Conf) parseRefresh(sec *ini.Section) (err error) {
-	if sec.HasKey("enable") {
-		c.Refresh.Enable, err = sec.Key("enable").Bool()
-		if err != nil {
-			return err
-		}
-	}
-
-	if !sec.HasKey("at") {
-		c.Refresh.At, err = time.Parse(hhmm, "02:30")
-	} else {
-		c.Refresh.At, err = sec.Key("at").TimeFormat(hhmm)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
