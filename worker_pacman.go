@@ -12,26 +12,24 @@ import (
 var dbpath = "/var/lib/pacman"
 var logfile = "/var/log/pacman.log"
 
-type LocalPacman struct {
-	C chan *Snapshot
-
+type WorkerPacman struct {
+	update  chan<- *Snapshot
 	watcher *fsnotify.Watcher
 }
 
-func NewLocalPacman() (*LocalPacman, error) {
-	pac := LocalPacman{C: make(chan *Snapshot)}
-	var err error
-
-	pac.watcher, err = fsnotify.NewWatcher()
+func NewWorkerPacman(update chan<- *Snapshot) (*WorkerPacman, error) {
+	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 
-	err = pac.watcher.Add(dbpath)
+	err = watcher.Add(dbpath)
 	if err != nil {
-		pac.watcher.Close()
+		watcher.Close()
 		return nil, err
 	}
+
+	pac := WorkerPacman{watcher: watcher, update: update}
 
 	go pac.watchChanges()
 	go pac.watchErrors()
@@ -39,7 +37,7 @@ func NewLocalPacman() (*LocalPacman, error) {
 	return &pac, nil
 }
 
-func (p *LocalPacman) FetchSnapshot() (*Snapshot, error) {
+func (p *WorkerPacman) FetchSnapshot() (*Snapshot, error) {
 	snapshot := Snapshot{}
 
 	err := Parallel(
@@ -59,7 +57,7 @@ func (p *LocalPacman) FetchSnapshot() (*Snapshot, error) {
 	return &snapshot, nil
 }
 
-func (p *LocalPacman) fetchLastSync() (time.Time, error) {
+func (p *WorkerPacman) fetchLastSync() (time.Time, error) {
 	f, err := os.Open(logfile)
 	if err != nil {
 		return time.Time{}, err
@@ -84,7 +82,7 @@ func (p *LocalPacman) fetchLastSync() (time.Time, error) {
 	return time.ParseInLocation("2006-01-02 15:04", line[1:17], loc)
 }
 
-func (p *LocalPacman) fetchPackages() ([]Package, error) {
+func (p *WorkerPacman) fetchPackages() ([]Package, error) {
 	stdout, _, err := CmdRun("pacman", "-Qu")
 	if err != nil {
 		return nil, err
@@ -101,14 +99,14 @@ func (p *LocalPacman) fetchPackages() ([]Package, error) {
 	return packages, nil
 }
 
-func (p *LocalPacman) watchChanges() {
+func (p *WorkerPacman) watchChanges() {
 	debouncedUpdate := NewDebounced(1000, func() {
 		snapshot, err := p.FetchSnapshot()
 		if err != nil {
 			// How to handle?
 			log.Println(err)
 		} else {
-			p.C <- snapshot
+			p.update <- snapshot
 		}
 	})
 
@@ -123,7 +121,7 @@ func (p *LocalPacman) watchChanges() {
 	}
 }
 
-func (p *LocalPacman) watchErrors() {
+func (p *WorkerPacman) watchErrors() {
 	for err := range p.watcher.Errors {
 		log.Println(err)
 	}

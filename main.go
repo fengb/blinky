@@ -48,7 +48,7 @@ func main() {
 		panic(err)
 	}
 
-	local, err := NewLocal()
+	local, err := NewLocal(conf)
 	if err != nil {
 		panic(err)
 	}
