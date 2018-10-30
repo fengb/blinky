@@ -1,3 +1,0 @@
-#!/bin/sh
-
-exec env -i "$@" perl -pe 's#\$([[:word:]]+)#$ENV{$1} // $& #gxe'

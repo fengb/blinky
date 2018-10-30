@@ -1,4 +1,3 @@
-PREFIX ?=
 VERSION = 0.3.0
 
 build/blinky: BUILDFLAGS ?= -ldflags "-s -w -X main.ConfDir=/etc/blinky -X main.Version=$(VERSION)"
@@ -13,11 +12,10 @@ build/v%.tar.gz:
 	@mkdir -p build
 	curl -fsL -o "$@" "https://github.com/fengb/blinky/archive/$(@F)"
 
-build/PKGBUILD-v%: build/v%.tar.gz scripts/PKGBUILD
-	scripts/expand_vars <scripts/PKGBUILD >"$@" \
-	  VERSION=$(VERSION) \
-	  SHA256="$$(sha256sum '$<' | cut -d' ' -f1)" \
-	  STATIC_FILES="$$(find static_files -type f -printf '\n  "%P"')"
+build/PKGBUILD-v%: build/v%.tar.gz scripts/PKGBUILD.template
+	VERSION=$(VERSION) \
+	SHA256="$$(sha256sum '$<' | cut -d' ' -f1)" \
+	scripts/PKGBUILD.template >"$@"
 
 build/PKGBUILD: build/PKGBUILD-v$(VERSION)
 	cp "$<" "$@"

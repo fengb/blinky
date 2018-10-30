@@ -1,0 +1,35 @@
+#!/bin/bash
+
+set -oue pipefail
+
+_static_files=($(find static_files -type f -printf '%P\n'))
+
+cat <<EOF
+pkgname=blinky
+pkgver=$VERSION
+pkgrel=1
+pkgdesc="Monitor Pacman changes"
+arch=('x86_64' 'armv7h')
+url="https://github.com/fengb/blinky"
+license=('MIT')
+makedepends=('go')
+source=("https://github.com/fengb/blinky/archive/v\${pkgver}.tar.gz")
+sha256sums=("$SHA256")
+backup=("${_static_files[@]}")
+
+build() {
+  cd "\${srcdir}/\${pkgname}-\${pkgver}"
+  make build/blinky
+}
+
+package() {
+  cd "\${srcdir}/\${pkgname}-\${pkgver}"
+
+  install -D -m0755 build/blinky "\$pkgdir/usr/bin/blinky"
+
+$(for file in "${_static_files[@]}"; do
+    echo "  install -D -m0644 \"static_files/$file\" \"\$pkgdir/$file\""
+  done
+)
+}
+EOF
