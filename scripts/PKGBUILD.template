@@ -1,0 +1,40 @@
+#!/bin/bash
+
+set -oue pipefail
+
+static_files="$(find static_files -type f -printf '%P\n' | sort)"
+
+map_to() {
+  while IFS=$'\n' read item; do
+    echo "${1//\{\}/$item}"
+  done
+}
+
+cat <<EOF
+pkgname=blinky
+pkgver=$VERSION
+pkgrel=1
+pkgdesc="Monitor Pacman changes"
+arch=('x86_64' 'armv7h')
+url="https://github.com/fengb/blinky"
+license=('MIT')
+makedepends=('go')
+source=("https://github.com/fengb/blinky/archive/v\${pkgver}.tar.gz")
+sha256sums=("$SHA256")
+backup=(
+$(map_to '  "{}"' <<<"$static_files")
+)
+
+build() {
+  cd "\${srcdir}/\${pkgname}-\${pkgver}"
+  make build/blinky
+}
+
+package() {
+  cd "\${srcdir}/\${pkgname}-\${pkgver}"
+
+  install -D -m0755 build/blinky "\$pkgdir/usr/bin/blinky"
+
+$(map_to '  install -D -m0644 "static_files/{}" "$pkgdir/{}"' <<<"$static_files")
+}
+EOF
