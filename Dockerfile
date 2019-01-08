@@ -1,5 +1,5 @@
-ARG IMAGE=base/archlinux
-FROM ${IMAGE}:2018.10.01
+ARG IMAGE
+FROM $IMAGE
 
 RUN pacman --noconfirm \
            -Sy fakeroot gcc make git go inotify-tools \

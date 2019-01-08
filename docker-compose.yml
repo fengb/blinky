@@ -1,14 +1,26 @@
 version: '2.1'
 
+x-default-service: &DEFAULT_SERVICE
+  command: 'scripts/watch'
+  ports: [ "${PORT:-9012}:9012" ]
+  volumes:
+    - 'go_src:/opt/go/src'
+    - '.:/opt/go/src/blinky'
+    - '/opt/go/src/blinky/build'
+
 services:
-  x64:
-    build: .
-    command: 'scripts/watch'
-    ports: [ "${PORT:-9012}:9012" ]
-    volumes:
-      - 'go_src:/opt/go/src'
-      - '.:/opt/go/src/blinky'
-      - '/opt/go/src/blinky/build'
+  arch-x64: &SHARED
+    build:
+      context: .
+      args:
+        IMAGE: 'base/archlinux:2018.10.01'
+
+  arch-armv7:
+    <<: *DEFAULT_SERVICE
+    build:
+      context: .
+      args:
+        IMAGE: 'lopsided/archlinux-armv7h:2018.10'
 
 volumes:
   go_src:
