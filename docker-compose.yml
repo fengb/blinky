@@ -2,7 +2,6 @@ version: '2.1'
 
 services:
   x64:
-    container_name: blinky_x64
     build: .
     command: 'scripts/watch'
     ports: [ "${PORT:-9012}:9012" ]

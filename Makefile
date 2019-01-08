@@ -2,10 +2,12 @@ VERSION = 0.3.0
 
 build/blinky: BUILDFLAGS ?= -ldflags "-s -w -X main.ConfDir=/etc/blinky -X main.Version=$(VERSION)"
 build/blinky: *.go
+	go get
 	go build -o "$@" $(BUILDFLAGS)
 
 build/blinky-dev: BUILDFLAGS ?=
 build/blinky-dev: *.go
+	go get
 	go build -o "$@" $(BUILDFLAGS)
 
 build/v%.tar.gz:
