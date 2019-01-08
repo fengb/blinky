@@ -2,7 +2,13 @@
 
 set -oue pipefail
 
-_static_files=($(find static_files -type f -printf '%P\n'))
+static_files="$(find static_files -type f -printf '%P\n' | sort)"
+
+map_to() {
+  while IFS=$'\n' read item; do
+    echo "${1//\{\}/$item}"
+  done
+}
 
 cat <<EOF
 pkgname=blinky
@@ -15,7 +21,9 @@ license=('MIT')
 makedepends=('go')
 source=("https://github.com/fengb/blinky/archive/v\${pkgver}.tar.gz")
 sha256sums=("$SHA256")
-backup=("${_static_files[@]}")
+backup=(
+$(map_to '  "{}"' <<<"$static_files")
+)
 
 build() {
   cd "\${srcdir}/\${pkgname}-\${pkgver}"
@@ -27,9 +35,6 @@ package() {
 
   install -D -m0755 build/blinky "\$pkgdir/usr/bin/blinky"
 
-$(for file in "${_static_files[@]}"; do
-    echo "  install -D -m0644 \"static_files/$file\" \"\$pkgdir/$file\""
-  done
-)
+$(map_to '  install -D -m0644 "static_files/{}" "$pkgdir/{}"' <<<"$static_files")
 }
 EOF
