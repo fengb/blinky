@@ -4,7 +4,6 @@ import (
 	"gopkg.in/ini.v1"
 	"html/template"
 	"net"
-	"time"
 )
 
 const hhmm = "15:04"
@@ -16,14 +15,14 @@ type Clock interface {
 }
 
 type Conf struct {
+	Pacman struct {
+		Conf    string
+		Refresh Clock
+	}
+
 	Http struct {
 		Addr  string
 		Index *template.Template
-	}
-
-	Refresh struct {
-		Enable bool
-		At     Clock
 	}
 
 	Multicast struct {
@@ -44,8 +43,8 @@ func NewConf(dir string) (*Conf, error) {
 	}
 
 	err = Parallel(
+		func() error { return conf.parsePacman(cfg.Section("pacman")) },
 		func() error { return conf.parseHttp(cfg.Section("http")) },
-		func() error { return conf.parseRefresh(cfg.Section("refresh")) },
 		func() error { return conf.parseMulticast(cfg.Section("multicast")) },
 	)
 	if err != nil {
@@ -53,6 +52,23 @@ func NewConf(dir string) (*Conf, error) {
 	}
 
 	return &conf, err
+}
+
+func (c *Conf) parsePacman(sec *ini.Section) (err error) {
+	if sec.HasKey("conf") {
+		c.Pacman.Conf = sec.Key("conf").Value()
+	} else {
+		c.Pacman.Conf = "/etc/pacman.conf"
+	}
+
+	if sec.HasKey("refresh") {
+		c.Pacman.Refresh, err = sec.Key("refresh").TimeFormat(hhmm)
+		if err != nil {
+			return err
+		}
+	}
+
+	return
 }
 
 func (c *Conf) parseHttp(sec *ini.Section) (err error) {
@@ -68,26 +84,6 @@ func (c *Conf) parseHttp(sec *ini.Section) (err error) {
 	c.Http.Index, err = template.ParseFiles(c.dir + "/index.html.tmpl")
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (c *Conf) parseRefresh(sec *ini.Section) (err error) {
-	if sec.HasKey("enable") {
-		c.Refresh.Enable, err = sec.Key("enable").Bool()
-		if err != nil {
-			return err
-		}
-	}
-
-	if !sec.HasKey("at") {
-		c.Refresh.At, err = time.Parse(hhmm, "02:30")
-	} else {
-		c.Refresh.At, err = sec.Key("at").TimeFormat(hhmm)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

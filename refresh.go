@@ -35,14 +35,18 @@ func NewRefresh(conf *Conf) (Actor, error) {
 }
 
 func (r *Refresh) UpdateConf(conf *Conf) error {
-	if conf.Refresh.Enable && !allowsPacmanSync() {
-		return errors.New("Cannot run pacman -S")
+	if conf.Pacman.Refresh != nil {
+		if !allowsPacmanSync() {
+			return errors.New("Cannot run pacman -S")
+		}
+
+		r.ticker.Reset(conf.Pacman.Refresh)
+		log.Println("Next refresh:", r.ticker.NextRun())
+	} else {
+		r.ticker.Stop()
 	}
 
 	r.conf = conf
-
-	r.ticker.Reset(conf.Refresh.At)
-	log.Println("Next refresh:", r.ticker.NextRun())
 
 	return nil
 }
