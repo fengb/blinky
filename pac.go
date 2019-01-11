@@ -34,9 +34,6 @@ func NewPac(filename string, snapshotState *SnapshotState) (*Pac, error) {
 	}
 
 	err = pac.updateSnapshot()
-	if pac.snapshotState.Local() == nil {
-		panic("wtf")
-	}
 	if err != nil {
 		return nil, err
 	}
