@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"github.com/fsnotify/fsnotify"
 	"github.com/serverhorror/rog-go/reverse"
 	"log"
@@ -9,58 +10,85 @@ import (
 	"time"
 )
 
-type Pac struct {
+type Pacman struct {
+	conf          *Conf
 	snapshotState *SnapshotState
-	dbpath        string
-	logfile       string
-	watcher       *fsnotify.Watcher
+
+	refresher *DailyTicker
+	watcher   *fsnotify.Watcher
 }
 
-func NewPac(filename string, snapshotState *SnapshotState) (*Pac, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	pac := Pac{snapshotState: snapshotState}
-
-	if pac.dbpath == "" {
-		pac.dbpath = "/var/lib/pacman"
-	}
-
-	if pac.logfile == "" {
-		pac.logfile = "/var/log/pacman.log"
-	}
-
-	err = pac.updateSnapshot()
+func NewPacman(conf *Conf, snapshotState *SnapshotState) (*Pacman, error) {
+	pac := Pacman{conf: conf, snapshotState: snapshotState, refresher: NewDailyTicker(nil)}
+	err := pac.UpdateConf(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	pac.watcher, err = fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
-
-	err = pac.watcher.Add(pac.dbpath)
-	if err != nil {
-		pac.watcher.Close()
-		return nil, err
-	}
-
-	go pac.watchChanges()
-	go pac.watchErrors()
+	go func() {
+		for _ = range pac.refresher.C {
+			log.Println("Running pacman --noconfirm -Syuwq")
+			_, _, err := CmdRun("pacman", "--noconfirm", "-Syuwq")
+			if err != nil {
+				log.Println(err)
+			}
+		}
+	}()
 
 	return &pac, nil
 }
 
-func (p *Pac) UpdateConf(conf *Conf) error {
-	// TODO: reload pacman.conf / watcher
+func (p *Pacman) UpdateConf(conf *Conf) error {
+	p.conf = conf
+	return Parallel(
+		p.updateWatcher,
+		p.updateRefresh,
+	)
+}
+
+func (p *Pacman) updateWatcher() error {
+	err := p.updateSnapshot()
+	if err != nil {
+		return err
+	}
+
+	p.watcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+
+	err = p.watcher.Add(p.conf.Pacman.Conf.DBPath)
+	if err != nil {
+		p.watcher.Close()
+		return err
+	}
+
+	go p.watchChanges()
+	go p.watchErrors()
+
 	return nil
 }
 
-func (p *Pac) updateSnapshot() error {
+func (p *Pacman) updateRefresh() error {
+	if p.conf.Pacman.Refresh != nil {
+		// Ideally use an exit status but all errors are 1
+		_, stderr, _ := CmdRun("pacman", "-S")
+		allowsPacmanSync := !strings.Contains(stderr, "root")
+
+		if !allowsPacmanSync {
+			return errors.New("Cannot run pacman -S")
+		}
+
+		p.refresher.Reset(p.conf.Pacman.Refresh)
+		log.Println("Next refresh:", p.refresher.NextRun())
+	} else {
+		p.refresher.Stop()
+	}
+
+	return nil
+}
+
+func (p *Pacman) updateSnapshot() error {
 	snapshot := Snapshot{}
 
 	err := Parallel(
@@ -82,8 +110,8 @@ func (p *Pac) updateSnapshot() error {
 	return nil
 }
 
-func (p *Pac) fetchLastSync() (time.Time, error) {
-	f, err := os.Open(p.logfile)
+func (p *Pacman) fetchLastSync() (time.Time, error) {
+	f, err := os.Open(p.conf.Pacman.Conf.LogFile)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -107,7 +135,7 @@ func (p *Pac) fetchLastSync() (time.Time, error) {
 	return time.ParseInLocation("2006-01-02 15:04", line[1:17], loc)
 }
 
-func (p *Pac) fetchPackages() ([]Package, error) {
+func (p *Pacman) fetchPackages() ([]Package, error) {
 	stdout, _, err := CmdRun("pacman", "-Qu")
 	if err != nil {
 		return nil, err
@@ -124,7 +152,7 @@ func (p *Pac) fetchPackages() ([]Package, error) {
 	return packages, nil
 }
 
-func (p *Pac) watchChanges() {
+func (p *Pacman) watchChanges() {
 	debouncedUpdate := NewDebounced(1000, func() {
 		err := p.updateSnapshot()
 		if err != nil {
@@ -144,7 +172,7 @@ func (p *Pac) watchChanges() {
 	}
 }
 
-func (p *Pac) watchErrors() {
+func (p *Pacman) watchErrors() {
 	for err := range p.watcher.Errors {
 		log.Println(err)
 	}

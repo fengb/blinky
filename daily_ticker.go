@@ -11,7 +11,11 @@ type DailyTicker struct {
 func NewDailyTicker(target Clock) *DailyTicker {
 	c := make(chan time.Time)
 	daily := DailyTicker{c, target, time.NewTimer(1 * time.Hour)}
-	daily.Reset(target)
+	if target != nil {
+		daily.Reset(target)
+	} else {
+		daily.timer.Stop()
+	}
 
 	go func() {
 		for t := range daily.timer.C {

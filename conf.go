@@ -16,8 +16,11 @@ type Clock interface {
 
 type Conf struct {
 	Pacman struct {
-		Conf    string
 		Refresh Clock
+		Conf    struct {
+			DBPath  string
+			LogFile string
+		}
 	}
 
 	Http struct {
@@ -55,12 +58,6 @@ func NewConf(dir string) (*Conf, error) {
 }
 
 func (c *Conf) parsePacman(sec *ini.Section) (err error) {
-	if sec.HasKey("conf") {
-		c.Pacman.Conf = sec.Key("conf").Value()
-	} else {
-		c.Pacman.Conf = "/etc/pacman.conf"
-	}
-
 	if sec.HasKey("refresh") {
 		c.Pacman.Refresh, err = sec.Key("refresh").TimeFormat(hhmm)
 		if err != nil {
@@ -68,7 +65,29 @@ func (c *Conf) parsePacman(sec *ini.Section) (err error) {
 		}
 	}
 
-	return
+	conf := "/etc/pacman.conf"
+	if sec.HasKey("conf") {
+		conf = sec.Key("conf").Value()
+	}
+
+	cfg, err := ini.LoadSources(ini.LoadOptions{SkipUnrecognizableLines: true}, conf)
+	if err != nil {
+		return err
+	}
+
+	opts := cfg.Section("options")
+	if opts.HasKey("DBPath") {
+		c.Pacman.Conf.DBPath = opts.Key("DBPath").Value()
+	} else {
+		c.Pacman.Conf.DBPath = "/var/lib/pacman"
+	}
+	if opts.HasKey("LogFile") {
+		c.Pacman.Conf.LogFile = opts.Key("LogFile").Value()
+	} else {
+		c.Pacman.Conf.LogFile = "/var/log/pacman.log"
+	}
+
+	return nil
 }
 
 func (c *Conf) parseHttp(sec *ini.Section) (err error) {
