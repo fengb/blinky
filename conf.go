@@ -4,7 +4,6 @@ import (
 	"gopkg.in/ini.v1"
 	"html/template"
 	"net"
-	"time"
 )
 
 const hhmm = "15:04"
@@ -16,14 +15,17 @@ type Clock interface {
 }
 
 type Conf struct {
+	Pacman struct {
+		Refresh Clock
+		Conf    struct {
+			DBPath  string
+			LogFile string
+		}
+	}
+
 	Http struct {
 		Addr  string
 		Index *template.Template
-	}
-
-	Refresh struct {
-		Enable bool
-		At     Clock
 	}
 
 	Multicast struct {
@@ -44,8 +46,8 @@ func NewConf(dir string) (*Conf, error) {
 	}
 
 	err = Parallel(
+		func() error { return conf.parsePacman(cfg.Section("pacman")) },
 		func() error { return conf.parseHttp(cfg.Section("http")) },
-		func() error { return conf.parseRefresh(cfg.Section("refresh")) },
 		func() error { return conf.parseMulticast(cfg.Section("multicast")) },
 	)
 	if err != nil {
@@ -53,6 +55,39 @@ func NewConf(dir string) (*Conf, error) {
 	}
 
 	return &conf, err
+}
+
+func (c *Conf) parsePacman(sec *ini.Section) (err error) {
+	if sec.HasKey("refresh") {
+		c.Pacman.Refresh, err = sec.Key("refresh").TimeFormat(hhmm)
+		if err != nil {
+			return err
+		}
+	}
+
+	conf := "/etc/pacman.conf"
+	if sec.HasKey("conf") {
+		conf = sec.Key("conf").Value()
+	}
+
+	cfg, err := ini.LoadSources(ini.LoadOptions{SkipUnrecognizableLines: true}, conf)
+	if err != nil {
+		return err
+	}
+
+	opts := cfg.Section("options")
+	if opts.HasKey("DBPath") {
+		c.Pacman.Conf.DBPath = opts.Key("DBPath").Value()
+	} else {
+		c.Pacman.Conf.DBPath = "/var/lib/pacman"
+	}
+	if opts.HasKey("LogFile") {
+		c.Pacman.Conf.LogFile = opts.Key("LogFile").Value()
+	} else {
+		c.Pacman.Conf.LogFile = "/var/log/pacman.log"
+	}
+
+	return nil
 }
 
 func (c *Conf) parseHttp(sec *ini.Section) (err error) {
@@ -68,26 +103,6 @@ func (c *Conf) parseHttp(sec *ini.Section) (err error) {
 	c.Http.Index, err = template.ParseFiles(c.dir + "/index.html.tmpl")
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (c *Conf) parseRefresh(sec *ini.Section) (err error) {
-	if sec.HasKey("enable") {
-		c.Refresh.Enable, err = sec.Key("enable").Bool()
-		if err != nil {
-			return err
-		}
-	}
-
-	if !sec.HasKey("at") {
-		c.Refresh.At, err = time.Parse(hhmm, "02:30")
-	} else {
-		c.Refresh.At, err = sec.Key("at").TimeFormat(hhmm)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

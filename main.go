@@ -50,14 +50,10 @@ func main() {
 		panic(err)
 	}
 
-	var pac, refresh, multicast, http Actor
+	var pacman, multicast, http Actor
 	err = Parallel(
 		func() (err error) {
-			pac, err = NewPac("/etc/pacman.conf", snapshotState)
-			return err
-		},
-		func() (err error) {
-			refresh, err = NewRefresh(conf)
+			pacman, err = NewPacman(conf, snapshotState)
 			return err
 		},
 		func() (err error) {
@@ -74,5 +70,5 @@ func main() {
 		panic(err)
 	}
 
-	watchSignals(pac, refresh, http, multicast)
+	watchSignals(pacman, http, multicast)
 }
