@@ -129,10 +129,10 @@ func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
 }
 
 func (m *Multicast) recv(msg ReadMsg) error {
-	//if m.send != nil && m.send.LocalAddr().String() == msg.Src.String() {
-	//	// We sent this. Ignore!
-	//	continue
-	//}
+	if m.listen.IsListening(msg.Src.String()) {
+		// We sent this. Ignore!
+		return nil
+	}
 
 	snapshot, err := m.decode(msg.Packet)
 	if err != nil {
