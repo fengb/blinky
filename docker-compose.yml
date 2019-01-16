@@ -2,14 +2,15 @@ version: '2.1'
 
 x-default-service: &DEFAULT_SERVICE
   command: 'scripts/watch'
-  ports: [ "${PORT:-9012}:9012" ]
+  ports: ["9012"]
   volumes:
     - 'go_src:/opt/go/src'
     - '.:/opt/go/src/blinky'
     - '/opt/go/src/blinky/build'
 
 services:
-  arch-x64: &SHARED
+  arch-x64:
+    <<: *DEFAULT_SERVICE
     build:
       context: .
       args:
