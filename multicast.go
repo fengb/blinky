@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -157,10 +158,19 @@ func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
 				continue
 			}
 
-			err = m.snapshotState.UpdateNetworkLink(msg.Src, msg.Packet, m.decode)
+			snapshot, err := m.decode(msg.Packet)
 			if err != nil {
 				log.Println(err)
 			}
+
+			ipString := msg.Src.IP.String()
+			host, err := net.LookupAddr(ipString)
+			if err != nil {
+				log.Println(err)
+			}
+
+			key := fmt.Sprintf("%s — %s", ipString, host)
+			m.snapshotState.Remote[key] = snapshot
 		}
 	}()
 

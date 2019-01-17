@@ -19,7 +19,7 @@
 </table>
 {{- end }}
 
-{{- range .Network }}
-  <h3>{{ .Ip.String }} &mdash; {{ .Hostnames }}</h3>
-  {{- template "snapshot" .Snapshot }}
+{{- range $name, $snapshot := .Remote }}
+  <h3>{{ $name }}</h3>
+  {{- template "snapshot" $snapshot }}
 {{- end }}
