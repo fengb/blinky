@@ -20,8 +20,6 @@ type Multicast struct {
 	snapshotState *SnapshotState
 	aes           *Aes
 	listen        *AutoListen
-	sendCache     []byte
-	send          *net.UDPConn
 	sendTimer     *time.Timer
 }
 
@@ -29,7 +27,7 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 	m := Multicast{
 		conf:          &Conf{},
 		snapshotState: snapshotState,
-		sendTimer:     time.NewTimer(1 * time.Hour),
+		sendTimer:     time.NewTimer(1 * time.Nanosecond),
 	}
 
 	err := m.UpdateConf(conf)
@@ -38,33 +36,11 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 	}
 
 	go func() {
-		update := func(snapshot *Snapshot) {
-			m.sendCache, err = m.encode(snapshot)
+		for _ = range m.sendTimer.C {
+			err := m.send()
 			if err != nil {
 				log.Println(err)
 			}
-
-			m.sendTimer.Stop()
-			m.sendTimer.Reset(1 * time.Nanosecond)
-		}
-
-		if snapshotState.Local() != nil {
-			update(snapshotState.Local())
-		}
-
-		for snapshot := range snapshotState.SubLocal() {
-			update(snapshot)
-		}
-	}()
-
-	go func() {
-		for _ = range m.sendTimer.C {
-			if m.send == nil {
-				// Bad state
-				log.Fatal("sendConn is nil... why")
-			}
-
-			m.send.Write(m.sendCache)
 			m.sendTimer.Reset(sendInterval)
 		}
 	}()
@@ -76,7 +52,6 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	var (
 		aes    *Aes
 		listen *AutoListen
-		send   *net.UDPConn
 	)
 
 	err := Parallel(
@@ -88,28 +63,20 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 			listen, err = m.updateListen(conf)
 			return err
 		},
-		func() (err error) {
-			send, err = m.updateSend(conf)
-			return err
-		},
 	)
 
 	if err != nil {
-		closeAll(listen, send)
+		closeAll(listen)
 		return err
-	}
-
-	if send == nil {
-		m.sendTimer.Stop()
 	}
 
 	if m.listen != listen {
 		closeAll(m.listen)
 		m.listen = listen
 	}
-	if m.send != send {
-		closeAll(m.send)
-		m.send = send
+
+	if !conf.Multicast.Send {
+		m.sendTimer.Stop()
 	}
 
 	m.aes = aes
@@ -153,50 +120,60 @@ func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
 
 	go func() {
 		for msg := range listener.C {
-			if m.send != nil && m.send.LocalAddr().String() == msg.Src.String() {
-				// We sent this. Ignore!
-				continue
-			}
-
-			snapshot, err := m.decode(msg.Packet)
+			err := m.recv(msg)
 			if err != nil {
 				log.Println(err)
 			}
-
-			ipString := msg.Src.IP.String()
-			host, err := net.LookupAddr(ipString)
-			if err != nil {
-				log.Println(err)
-			}
-
-			key := fmt.Sprintf("%s — %s", ipString, host)
-			m.snapshotState.Remote[key] = snapshot
 		}
 	}()
 
 	return listener, nil
 }
 
-func (m *Multicast) updateSend(conf *Conf) (*net.UDPConn, error) {
-	if !conf.Multicast.Send {
-		return nil, nil
-	}
+func (m *Multicast) recv(msg ReadMsg) error {
+	//if m.send != nil && m.send.LocalAddr().String() == msg.Src.String() {
+	//	// We sent this. Ignore!
+	//	continue
+	//}
 
-	if conf.Multicast.Send == m.conf.Multicast.Send &&
-		conf.Multicast.Addr == m.conf.Multicast.Addr {
-		return m.send, nil
-	}
-
-	addr, err := net.ResolveUDPAddr("udp", conf.Multicast.Addr)
+	snapshot, err := m.decode(msg.Packet)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	ipString := msg.Src.IP.String()
+	host, err := net.LookupAddr(ipString)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("%s — %s", ipString, host)
+	m.snapshotState.UpdateRemote(key, snapshot)
+	return nil
+}
+
+func (m *Multicast) send() error {
+	addr, err := net.ResolveUDPAddr("udp", m.conf.Multicast.Addr)
+	if err != nil {
+		return err
 	}
 	conn, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	defer conn.Close()
+
+	snapshotData, err := m.encode(m.snapshotState.Local())
+	if err != nil {
+		return err
 	}
 
-	return conn, nil
+	_, err = conn.Write(snapshotData)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (m *Multicast) decode(encrypted []byte) (*Snapshot, error) {

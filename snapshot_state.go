@@ -71,6 +71,11 @@ func (s *SnapshotState) UpdateLocal(snapshot *Snapshot) {
 	}
 }
 
+func (s *SnapshotState) UpdateRemote(key string, snapshot *Snapshot) {
+	log.Println("Remote snapshot changed —", key)
+	s.Remote[key] = snapshot
+}
+
 func (s *SnapshotState) SubLocal() <-chan *Snapshot {
 	sub := make(chan *Snapshot)
 	s.subs = append(s.subs, sub)
