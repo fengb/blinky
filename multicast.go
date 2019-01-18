@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-const sendInterval = 30 * time.Second
-
 type Multicast struct {
 	conf          *Conf
 	snapshotState *SnapshotState
@@ -41,7 +39,7 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 			if err != nil {
 				log.Println(err)
 			}
-			m.sendTimer.Reset(sendInterval)
+			m.sendTimer.Reset(m.conf.Multicast.Send)
 		}
 	}()
 
@@ -75,7 +73,7 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 		m.listen = listen
 	}
 
-	if !conf.Multicast.Send {
+	if conf.Multicast.Send <= 0 {
 		m.sendTimer.Stop()
 	}
 
