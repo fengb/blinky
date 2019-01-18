@@ -1,9 +1,6 @@
 #!/bin/bash
 
-function reap {
-  pkill -g $$
-}
-trap "reap" EXIT
+trap "exit" INT
 
 while true; do
   if make build/blinky-dev; then
