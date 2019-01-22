@@ -5,11 +5,9 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net"
-	"reflect"
 	"time"
 )
 
@@ -52,24 +50,20 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 		listen *AutoListen
 	)
 
-	err := Parallel(
-		func() (err error) {
-			aes, err = NewAes(conf.Multicast.Secret)
-			return err
-		},
-		func() (err error) {
-			listen, err = m.updateListen(conf)
-			return err
-		},
-	)
-
+	aes, err := NewAes(conf.Multicast.Secret)
 	if err != nil {
-		closeAll(listen)
+		return err
+	}
+
+	listen, err = m.updateListen(conf)
+	if err != nil {
 		return err
 	}
 
 	if m.listen != listen {
-		closeAll(m.listen)
+		if m.listen != nil {
+			m.listen.Close()
+		}
 		m.listen = listen
 	}
 
@@ -81,19 +75,6 @@ func (m *Multicast) UpdateConf(conf *Conf) error {
 	m.conf = conf
 
 	return nil
-}
-
-func closeAll(closers ...io.Closer) {
-	for _, closer := range closers {
-		if closer == nil || reflect.ValueOf(closer).IsNil() {
-			continue
-		}
-
-		err := closer.Close()
-		if err != nil {
-			log.Println(err)
-		}
-	}
 }
 
 func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
