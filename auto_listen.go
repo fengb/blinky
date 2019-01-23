@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"github.com/mingrammer/commonregex"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"log"
 	"net"
-	"regexp"
 )
 
 const maxPacketSize = 8192
@@ -80,10 +81,16 @@ func (a *AutoListen) Close() error {
 	return err
 }
 
-func (a *AutoListen) IsListening(raw string) bool {
-	ip := ipv4.FindString(raw)
-	_, isListening := a.ipStrings[ip]
-	return isListening
+func (a *AutoListen) IsListening(raw string) (bool, error) {
+	ips := commonregex.IPs(raw)
+	if len(ips) == 0 {
+		return false, fmt.Errorf("'%s' does not contain recognizable IP", raw)
+	}
+	if len(ips) > 1 {
+		return false, fmt.Errorf("'%s' matched too many IPs %s", raw, ips)
+	}
+	_, isListening := a.ipStrings[ips[0]]
+	return isListening, nil
 }
 
 func (a *AutoListen) connect(iface net.Interface) error {
@@ -156,9 +163,7 @@ func (a *AutoListen) disconnect(iface net.Interface) error {
 func (a *AutoListen) extractIpStrings(addrs []net.Addr) []string {
 	strings := make([]string, 0, len(addrs))
 	for _, addr := range addrs {
-		strings = append(strings, ipv4.FindString(addr.String()))
+		strings = append(strings, commonregex.IPs(addr.String())...)
 	}
 	return strings
 }
-
-var ipv4 = regexp.MustCompile(`(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])`)

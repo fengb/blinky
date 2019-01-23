@@ -110,8 +110,12 @@ func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
 }
 
 func (m *Multicast) recv(msg ReadMsg) error {
-	if m.listen.IsListening(msg.Src.String()) {
-		// We sent this. Ignore!
+	weSentThis, err := m.listen.IsListening(msg.Src.String())
+	if err != nil {
+		return err
+	}
+
+	if weSentThis {
 		return nil
 	}
 
