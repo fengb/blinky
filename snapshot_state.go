@@ -47,7 +47,6 @@ func (s *Snapshot) Equal(o *Snapshot) bool {
 type SnapshotState struct {
 	local  *Snapshot
 	Remote map[string]*Snapshot
-	subs   []chan *Snapshot
 }
 
 func NewSnapshotState() *SnapshotState {
@@ -66,18 +65,9 @@ func (s *SnapshotState) UpdateLocal(snapshot *Snapshot) {
 	log.Println("Local snapshot changed")
 
 	s.local = snapshot
-	for _, sub := range s.subs {
-		sub <- snapshot
-	}
 }
 
 func (s *SnapshotState) UpdateRemote(key string, snapshot *Snapshot) {
 	log.Println("Remote snapshot changed —", key)
 	s.Remote[key] = snapshot
-}
-
-func (s *SnapshotState) SubLocal() <-chan *Snapshot {
-	sub := make(chan *Snapshot)
-	s.subs = append(s.subs, sub)
-	return sub
 }
