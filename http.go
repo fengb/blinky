@@ -13,9 +13,8 @@ type Http struct {
 }
 
 func NewHttp(conf *Conf, snapshotState *SnapshotState) (*Http, error) {
-	h := Http{conf: conf, snapshotState: snapshotState, srv: &http.Server{Addr: conf.Http.Addr}}
-
-	http.HandleFunc("/", h.Index)
+	h := Http{conf: conf, snapshotState: snapshotState}
+	h.srv = &http.Server{Addr: conf.Http.Addr, Handler: http.HandlerFunc(h.Index)}
 
 	go func() {
 		log.Println("Listening to", conf.Http.Addr)
