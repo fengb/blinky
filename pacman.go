@@ -20,7 +20,11 @@ type Pacman struct {
 
 func NewPacman(conf *Conf, snapshotState *SnapshotState) (*Pacman, error) {
 	pac := Pacman{conf: conf, snapshotState: snapshotState, refresher: NewDailyTicker(nil)}
-	err := pac.UpdateConf(conf)
+	err := Parallel(
+		pac.initWatcher,
+		pac.initRefresh,
+	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -38,15 +42,12 @@ func NewPacman(conf *Conf, snapshotState *SnapshotState) (*Pacman, error) {
 	return &pac, nil
 }
 
-func (p *Pacman) UpdateConf(conf *Conf) error {
-	p.conf = conf
-	return Parallel(
-		p.updateWatcher,
-		p.updateRefresh,
-	)
+func (p *Pacman) Close() error {
+	p.refresher.Stop()
+	return p.watcher.Close()
 }
 
-func (p *Pacman) updateWatcher() error {
+func (p *Pacman) initWatcher() error {
 	err := p.updateSnapshot()
 	if err != nil {
 		return err
@@ -69,7 +70,7 @@ func (p *Pacman) updateWatcher() error {
 	return nil
 }
 
-func (p *Pacman) updateRefresh() error {
+func (p *Pacman) initRefresh() error {
 	if p.conf.Pacman.Refresh != nil {
 		// Ideally use an exit status but all errors are 1
 		_, stderr, _ := CmdRun("pacman", "-S")

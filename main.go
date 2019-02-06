@@ -14,37 +14,10 @@ var (
 )
 
 type Actor interface {
-	UpdateConf(conf *Conf) error
+	Close() error
 }
 
-func watchSignals(actors ...Actor) {
-	c := make(chan os.Signal)
-	signal.Notify(c, syscall.SIGHUP)
-	for _ = range c {
-		log.Printf("HUP received - reloading")
-
-		conf, err := NewConf(ConfDir)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		for _, actor := range actors {
-			err = actor.UpdateConf(conf)
-			if err != nil {
-				log.Println(err)
-			}
-		}
-	}
-}
-
-func main() {
-	if ConfDir == "" {
-		ConfDir = "static_files/etc/blinky"
-	}
-
-	snapshotState := NewSnapshotState()
-
+func InitApp(confDir string, snapshotState *SnapshotState) ([]Actor, error) {
 	conf, err := NewConf(ConfDir)
 	if err != nil {
 		panic(err)
@@ -67,8 +40,39 @@ func main() {
 	)
 
 	if err != nil {
+		return nil, err
+	}
+
+	return []Actor{pacman, multicast, http}, nil
+}
+
+func main() {
+	if ConfDir == "" {
+		ConfDir = "static_files/etc/blinky"
+	}
+
+	snapshotState := NewSnapshotState()
+
+	actors, err := InitApp(ConfDir, snapshotState)
+	if err != nil {
 		panic(err)
 	}
 
-	watchSignals(pacman, http, multicast)
+	c := make(chan os.Signal)
+	signal.Notify(c, syscall.SIGHUP)
+	for _ = range c {
+		log.Printf("HUP received - reloading")
+
+		newActors, err := InitApp(ConfDir, snapshotState)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		for _, actor := range actors {
+			actor.Close()
+		}
+
+		actors = newActors
+	}
 }
