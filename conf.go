@@ -4,6 +4,7 @@ import (
 	"gopkg.in/ini.v1"
 	"html/template"
 	"net"
+	"time"
 )
 
 const hhmm = "15:04"
@@ -30,7 +31,7 @@ type Conf struct {
 
 	Multicast struct {
 		Listen bool
-		Send   bool
+		Send   time.Duration
 		Addr   string
 		Secret []byte
 	}
@@ -117,7 +118,7 @@ func (c *Conf) parseMulticast(sec *ini.Section) (err error) {
 	}
 
 	if sec.HasKey("send") {
-		c.Multicast.Send, err = sec.Key("send").Bool()
+		c.Multicast.Send, err = sec.Key("send").Duration()
 		if err != nil {
 			return err
 		}

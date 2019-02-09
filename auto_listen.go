@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"github.com/mingrammer/commonregex"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"log"
@@ -14,10 +16,17 @@ type ReadMsg struct {
 	Src    *net.UDPAddr
 }
 
+type connMeta struct {
+	Conn      *net.UDPConn
+	Iface     net.Interface
+	IpStrings []string
+}
+
 type AutoListen struct {
 	Addr       *net.UDPAddr
 	C          chan ReadMsg
-	conns      map[string]*net.UDPConn
+	metas      map[string]*connMeta
+	ipStrings  map[string]bool
 	updateDone chan struct{}
 }
 
@@ -25,7 +34,8 @@ func NewAutoListen(addr *net.UDPAddr) (*AutoListen, error) {
 	a := AutoListen{
 		addr,
 		make(chan ReadMsg),
-		make(map[string]*net.UDPConn),
+		make(map[string]*connMeta),
+		make(map[string]bool),
 		make(chan struct{}),
 	}
 
@@ -60,9 +70,9 @@ func NewAutoListen(addr *net.UDPAddr) (*AutoListen, error) {
 }
 
 func (a *AutoListen) Close() error {
-	closeAll := make([]func() error, 0, len(a.conns))
-	for _, conn := range a.conns {
-		closeAll = append(closeAll, conn.Close)
+	closeAll := make([]func() error, 0, len(a.metas))
+	for _, meta := range a.metas {
+		closeAll = append(closeAll, meta.Conn.Close)
 	}
 
 	err := Parallel(closeAll...)
@@ -71,13 +81,27 @@ func (a *AutoListen) Close() error {
 	return err
 }
 
-func (a *AutoListen) isConnected(iface net.Interface) bool {
-	return a.conns[iface.Name] != nil
+func (a *AutoListen) IsListening(raw string) (bool, error) {
+	ips := commonregex.IPs(raw)
+	if len(ips) == 0 {
+		return false, fmt.Errorf("'%s' does not contain recognizable IP", raw)
+	}
+	if len(ips) > 1 {
+		return false, fmt.Errorf("'%s' matched too many IPs %s", raw, ips)
+	}
+	_, isListening := a.ipStrings[ips[0]]
+	return isListening, nil
 }
 
 func (a *AutoListen) connect(iface net.Interface) error {
-	if a.isConnected(iface) {
+	_, isConnected := a.metas[iface.Name]
+	if isConnected {
 		return nil
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return err
 	}
 
 	if iface.Flags&net.FlagMulticast != net.FlagMulticast {
@@ -89,8 +113,12 @@ func (a *AutoListen) connect(iface net.Interface) error {
 		return err
 	}
 
-	a.conns[iface.Name] = conn
-	log.Println("Connected to", iface.Name)
+	meta := connMeta{conn, iface, a.extractIpStrings(addrs)}
+	a.metas[iface.Name] = &meta
+	for _, ip := range meta.IpStrings {
+		a.ipStrings[ip] = true
+	}
+	log.Println("Connected to", iface.Name, meta.IpStrings)
 
 	go func() {
 		defer a.disconnect(iface)
@@ -101,7 +129,8 @@ func (a *AutoListen) connect(iface net.Interface) error {
 
 			n, src, err := conn.ReadFromUDP(packet)
 			if err != nil {
-				if !a.isConnected(iface) {
+				_, isConnected := a.metas[iface.Name]
+				if !isConnected {
 					return
 				}
 
@@ -117,12 +146,24 @@ func (a *AutoListen) connect(iface net.Interface) error {
 }
 
 func (a *AutoListen) disconnect(iface net.Interface) error {
-	if !a.isConnected(iface) {
+	meta, isConnected := a.metas[iface.Name]
+	if !isConnected {
 		return nil
 	}
 
-	err := a.conns[iface.Name].Close()
-	a.conns[iface.Name] = nil
+	err := meta.Conn.Close()
+	delete(a.metas, iface.Name)
+	for _, ip := range meta.IpStrings {
+		delete(a.ipStrings, ip)
+	}
 
 	return err
+}
+
+func (a *AutoListen) extractIpStrings(addrs []net.Addr) []string {
+	strings := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		strings = append(strings, commonregex.IPs(addr.String())...)
+	}
+	return strings
 }

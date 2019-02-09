@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"log"
-	"net"
-	"sort"
 	"time"
 )
 
@@ -19,14 +16,6 @@ type Snapshot struct {
 	Packages []Package
 }
 
-type NetworkLink struct {
-	Ip          net.IP
-	Hostnames   []string
-	LastContact time.Time
-	Snapshot    *Snapshot
-	raw         []byte
-}
-
 func (s *Snapshot) Status() string {
 	for _, pkg := range s.Packages {
 		if pkg.Upgrade != "" {
@@ -38,7 +27,7 @@ func (s *Snapshot) Status() string {
 
 func (s *Snapshot) Equal(o *Snapshot) bool {
 	if o == nil {
-		return false
+		return s == o
 	}
 
 	if s.LastSync != o.LastSync ||
@@ -56,13 +45,12 @@ func (s *Snapshot) Equal(o *Snapshot) bool {
 }
 
 type SnapshotState struct {
-	local         *Snapshot
-	subs          []chan *Snapshot
-	networkLookup map[string]NetworkLink
+	local  *Snapshot
+	Remote map[string]*Snapshot
 }
 
 func NewSnapshotState() *SnapshotState {
-	return &SnapshotState{networkLookup: make(map[string]NetworkLink)}
+	return &SnapshotState{Remote: make(map[string]*Snapshot)}
 }
 
 func (s *SnapshotState) Local() *Snapshot {
@@ -77,54 +65,9 @@ func (s *SnapshotState) UpdateLocal(snapshot *Snapshot) {
 	log.Println("Local snapshot changed")
 
 	s.local = snapshot
-	for _, sub := range s.subs {
-		sub <- snapshot
-	}
 }
 
-func (s *SnapshotState) SubLocal() <-chan *Snapshot {
-	sub := make(chan *Snapshot)
-	s.subs = append(s.subs, sub)
-	return sub
-}
-
-func (s *SnapshotState) UpdateNetworkLink(
-	addr *net.UDPAddr,
-	raw []byte,
-	makeSnapshot func(raw []byte) (*Snapshot, error),
-) error {
-	ipString := addr.IP.String()
-	cache, ok := s.networkLookup[ipString]
-	if ok && bytes.Equal(raw, cache.raw) {
-		cache.LastContact = time.Now()
-		s.networkLookup[ipString] = cache
-		return nil
-	}
-
-	snapshot, err := makeSnapshot(raw)
-	if err != nil {
-		return err
-	}
-
-	cache = NetworkLink{raw: raw, Ip: addr.IP, LastContact: time.Now(), Snapshot: snapshot}
-	cache.Hostnames, _ = net.LookupAddr(ipString)
-
-	s.networkLookup[ipString] = cache
-	log.Println("Update received from", ipString)
-
-	return nil
-}
-
-func (s *SnapshotState) Network() []NetworkLink {
-	keys := make([]string, 0, len(s.networkLookup))
-	for key := range s.networkLookup {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	slice := make([]NetworkLink, 0, len(keys))
-	for _, key := range keys {
-		slice = append(slice, s.networkLookup[key])
-	}
-	return slice
+func (s *SnapshotState) UpdateRemote(key string, snapshot *Snapshot) {
+	log.Println("Remote snapshot changed —", key)
+	s.Remote[key] = snapshot
 }
