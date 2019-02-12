@@ -63,16 +63,13 @@ func main() {
 	for _ = range c {
 		log.Printf("HUP received - reloading")
 
-		newActors, err := InitApp(ConfDir, snapshotState)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
 		for _, actor := range actors {
 			actor.Close()
 		}
 
-		actors = newActors
+		actors, err = InitApp(ConfDir, snapshotState)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
