@@ -19,14 +19,19 @@ type Multicast struct {
 	sendTimer     *time.Timer
 }
 
-func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) {
-	m := Multicast{
-		conf:          &Conf{},
+func NewMulticast(conf *Conf, snapshotState *SnapshotState) (m *Multicast, err error) {
+	m = &Multicast{
+		conf:          conf,
 		snapshotState: snapshotState,
 		sendTimer:     time.NewTimer(1 * time.Nanosecond),
 	}
 
-	err := m.UpdateConf(conf)
+	m.aes, err = NewAes(conf.Multicast.Secret)
+	if err != nil {
+		return nil, err
+	}
+
+	m.listen, err = m.initListen(conf)
 	if err != nil {
 		return nil, err
 	}
@@ -41,50 +46,20 @@ func NewMulticast(conf *Conf, snapshotState *SnapshotState) (*Multicast, error) 
 		}
 	}()
 
-	return &m, nil
+	return m, nil
 }
 
-func (m *Multicast) UpdateConf(conf *Conf) error {
-	var (
-		aes    *Aes
-		listen *AutoListen
-	)
-
-	aes, err := NewAes(conf.Multicast.Secret)
-	if err != nil {
-		return err
+func (m *Multicast) Close() error {
+	if m.listen != nil {
+		return m.listen.Close()
 	}
-
-	listen, err = m.updateListen(conf)
-	if err != nil {
-		return err
-	}
-
-	if m.listen != listen {
-		if m.listen != nil {
-			m.listen.Close()
-		}
-		m.listen = listen
-	}
-
-	if conf.Multicast.Send <= 0 {
-		m.sendTimer.Stop()
-	}
-
-	m.aes = aes
-	m.conf = conf
 
 	return nil
 }
 
-func (m *Multicast) updateListen(conf *Conf) (*AutoListen, error) {
+func (m *Multicast) initListen(conf *Conf) (*AutoListen, error) {
 	if !conf.Multicast.Listen {
 		return nil, nil
-	}
-
-	if conf.Multicast.Listen == m.conf.Multicast.Listen &&
-		conf.Multicast.Addr == m.conf.Multicast.Addr {
-		return m.listen, nil
 	}
 
 	addr, err := net.ResolveUDPAddr("udp", conf.Multicast.Addr)

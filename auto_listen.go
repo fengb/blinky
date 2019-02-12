@@ -75,6 +75,8 @@ func (a *AutoListen) Close() error {
 		closeAll = append(closeAll, meta.Conn.Close)
 	}
 
+	a.metas = nil
+
 	err := Parallel(closeAll...)
 	close(a.C)
 	close(a.updateDone)
